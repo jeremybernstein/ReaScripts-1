@@ -600,7 +600,7 @@ function Mouse_Data_From_Arrange()
    if reaper.GetToggleCommandState(1157) == 1 then
       mouse.p = reaper.SnapToGrid(0, mouse.p)
       mouse.x = (Round(mouse.p * zoom_lvl) + x_view_start) - Arr_pixel
-      mouse.ox = (Round(mouse.op * zoom_lvl) + x_view_start) - Arr_pixel
+      --mouse.ox = (Round(mouse.op * zoom_lvl) + x_view_start) - Arr_pixel
    end
    if GetTracksFromMouse(mouse.y) then
       mouse.tr, mouse.r_t, mouse.r_b = GetTracksFromMouse(mouse.y)
