@@ -1,5 +1,6 @@
 local main_wnd = reaper.GetMainHwnd() -- GET MAIN WINDOW
-local track_window = reaper.JS_Window_FindChildByID(main_wnd, 1000) -- GET TRACK VIEW
+local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRACK VIEW
+local cur_path = package.cursor
 
 local Element = {}
 
@@ -29,28 +30,20 @@ function Element:zone(z)
       local new_L = z[2] + mouse.dp
       self.time_start = new_L
       self.time_start = self.time_start >= 0 and self.time_start or 0
-      self.time_start = self.time_start <= z[3] and self.time_start or z[3]
-      self.time_dur = z[3] - new_L
-      self.x, self.w = convert_time_to_pixel(self.time_start, z[3])
+      self.time_start = self.time_start <= (z[3]+z[2]) and self.time_start or (z[3]+z[2])
+      self.time_dur = (z[3]+z[2]) - new_L
+      self.x, self.w = convert_time_to_pixel(self.time_start, (z[3]+z[2]))
     elseif z[1] == "R" then
-      local new_R = z[2] + mouse.dp
+      local new_R = z[3] + mouse.dp
       self.time_dur = new_R
       self.time_dur = self.time_dur >= 0 and self.time_dur or 0
       _, self.w = convert_time_to_pixel(0, self.time_dur)
       --AreaDo({self},"stretch")
     elseif z[1] == "C" then
-      move = true
       local tracks = z[5]
       local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
 
-      if not mouse.Ctrl() then -- DRAG COPY
-        --if not SPLIT then
-          --AreaDo({self}, "split") -- split selection
-          --self.sel_info = GetSelectionInfo(self) -- get new info on seleciton
-          --GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2])
-          --SPLIT = true --set split flag
-        --end
-        --end
+      if not mouse.Ctrl() and false then -- DRAG COPY, disabled updating area start while dragging
         self.time_start = new_L
         self.time_start = self.time_start >= 0 and self.time_start or 0
         self.x = convert_time_to_pixel(self.time_start, 0)
@@ -103,36 +96,25 @@ function Element:zone(z)
       self.h = new_h
     end
   else
-    SPLIT = nil
-    move = nil
+    ZONE_BUFFER = nil
     ZONE = nil
-    test = nil
+    TEMP_AREA = nil
     ARRANGE = nil
     if z[1] == "L" or z[1] == "R" or z[1] == "T" or z[1] == "B" then
-      self.sel_info = GetSelectionInfo(self) -- UPDATE AREAS INFORMATION
-      GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2])
     elseif z[1] == "C" then
+      local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
       if mouse.Ctrl() then
-        local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
-        AreaDo({self}, "PASTE",new_L)
-        self.time_start = new_L
-        self.time_start = self.time_start >= 0 and self.time_start or 0
-        self.x = convert_time_to_pixel(self.time_start, 0)
+        AreaDo({self}, "PASTE", new_L)
       else
-        --for i = 1, #z[5] do
-        --  split_or_delete_items(nil, z[5][i].items, z[2], z[2]+z[3], "del")
-        --end
-        --AreaDo({self}, "split") -- split selection
-        --self.sel_info = GetSelectionInfo(self) -- get new info on seleciton
-          --GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2])
-          --SPLIT = true --set split flag
-        move_items_envs(self, self.time_start - z[2]) -- MOVE ITEMS BEFORE WE UPDATE THE AREA SO OFFSET CAN REFRESH
+        AreaDo({self}, "move", new_L)
       end
+      self.time_start = new_L
+      self.time_start = self.time_start >= 0 and self.time_start or 0
+      self.x = convert_time_to_pixel(self.time_start, 0)
       UnlinkGhosts()
-      self.sel_info = GetSelectionInfo(self)
-      GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2])
     end
-    --GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2])
+    self.sel_info = GetSelectionInfo(self)
+    GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2] + z[3])
   end
   if z[1] ~= "C" then self:draw() end
 end
@@ -147,9 +129,7 @@ function Element:draw(x,y,h)
   self.x = x or self.x
   self.y = y or self.y
   self.h = h or self.h
-  --local _, x_view_start, y_view_start = reaper.JS_Window_GetRect(track_window)
   local sx, sy = reaper.JS_Window_ScreenToClient( track_window, self.x, self.y ) -- PREPARE TEST FOR OSX
-  --reaper.JS_Composite(track_window, self.x - x_view_start, self.y - y_view_start, self.w, self.h, self.bm, 0, 0, 1, 1)
   reaper.JS_Composite(track_window, sx, sy, self.w, self.h, self.bm, 0, 0, 1, 1)
   refresh_reaper()
 end
@@ -167,7 +147,7 @@ function Element:zoneIN(x, y)
     elseif y <= self.y + self.h and y >= (self.y + self.h) - range2 then
       return "BL"
     end
-    return {"L", self.time_start, self.time_start + self.time_dur}
+    return {"L", self.time_start, self.time_dur}
   end
 
   if x >= (self.x + self.w - range2) and x <= self.x + self.w then
@@ -176,14 +156,14 @@ function Element:zoneIN(x, y)
     elseif y <= self.y + self.h and y >= (self.y + self.h) - range2 then
       return "BR"
     end
-    return {"R", self.time_dur, self.time_start}
+    return {"R", self.time_start, self.time_dur}
   end
 
   if y >= self.y and y <= self.y + range2 then
-    return {"T", self.y, self.h}
+    return {"T", self.y, self.h, self.time_start + self.time_dur}
   end
   if y <= self.y + self.h and y >= (self.y + self.h) - range2 then
-    return {"B", self.y, self.h}
+    return {"B", self.y, self.h, self.time_start + self.time_dur}
   end
 
   if x > (self.x + range2) and x < (self.x + self.w - range2) then
@@ -194,7 +174,7 @@ function Element:zoneIN(x, y)
 end
 
 function Element:mouseZONE()
-  return self:zoneIN(mouse.ox, mouse.oy)
+  return self:zoneIN(mouse.ox, mouse.oy) -- mouse.ox, mouse.oy
 end
 
 function Element:mouseIN()
@@ -205,7 +185,7 @@ function Element:mouseDown()
   return mouse.l_down and self:pointIN(mouse.ox, mouse.oy)
 end
 --------
-function Element:mouseUp() -- its actual for sliders and knobs only!
+function Element:mouseUp() 
   return mouse.l_up and self:pointIN(mouse.ox, mouse.oy)
 end
 --------
@@ -221,6 +201,8 @@ function Element:mouseM_Down()
   --return m_state&64==64 and self:pointIN(mouse_ox, mouse_oy)
 end
 --------
+local ZONE_BUFFER
+local TEMP_AREA
 function Element:track()
   if CREATING then
     return
@@ -228,18 +210,18 @@ function Element:track()
 
   if self:mouseDown() then
     if not ZONE then
-      ZONE = self:mouseZONE()
-      test = self
+      ZONE_BUFFER = self:mouseZONE()
+      ZONE = self:mouseZONE()[1]
+      TEMP_AREA = self
     end
   end
-  if ZONE and self.guid == test.guid then
-    test:zone(ZONE)
+
+  if ZONE and self.guid == TEMP_AREA.guid then
+    TEMP_AREA:zone(ZONE_BUFFER)
   end -- PREVENT OTHER AREAS TRIGGERING THIS LOOP AGAIN
 
   A_M_Block = self:mouseIN() or self:mouseDown() or ZONE and true or nil
 
-  if self:mouseIN() then
-  end
 end
 ----------------------------------------------------------------------------------------------------
 ---   Create Element Child Classes(Button,Slider,Knob)   -------------------------------------------
@@ -269,4 +251,3 @@ end
 function refresh_reaper()
   reaper.JS_Window_InvalidateRect(track_window, 0, 0, 5000, 5000, false)
 end
-

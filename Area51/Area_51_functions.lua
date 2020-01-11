@@ -116,16 +116,6 @@ function move_items_envs(tbl, offset)
   reaper.Undo_EndBlock("AREA51 MOVE", 4)
 end
 
-local function add_info_to_edge(tbl)
-  local tracks = {}
-  for i = 1, #tbl.sel_info do
-    tracks[#tracks + 1] = {track = tbl.sel_info[i].track}
-  end
-
-  local info = GetRangeInfo(tracks, tbl.time_start, tbl.time_end)
-  tbl.sel_info = info
-end
-
 function item_blit(item, as_start, as_end, pos)
   local tsStart, tsEnd = as_start, as_end
   local item_lenght = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
@@ -160,7 +150,7 @@ function item_blit(item, as_start, as_end, pos)
   end
 end
 
-function as_item_position(item, as_start, as_end, mouse_time_pos)
+function as_item_position(item, as_start, as_end, mouse_time_pos, job)
   local cur_pos = mouse_time_pos
 
   if job == "duplicate" then
@@ -221,14 +211,13 @@ function insert_edge_points(env, as_time_tbl, offset, src_tr, del)
   reaper.InsertEnvelopePoint(env, as_time_tbl[2] + offset - 0.001, value_e, 0, 0, true, false)
 end
 
-local function create_item(item, tr, as_start, as_end, mouse_time_pos)
+local function create_item(item, tr, as_start, as_end, mouse_time_pos, job)
   local filename, clonedsource
   local take = reaper.GetMediaItemTake(item, 0)
   local source = reaper.GetMediaItemTake_Source(take)
   local m_type = reaper.GetMediaSourceType(source, "")
   local item_volume = reaper.GetMediaItemInfo_Value(item, "D_VOL")
   local new_Item = reaper.AddMediaItemToTrack(tr)
-   ---
   local new_Take = reaper.AddTakeToMediaItem(new_Item)
 
   if m_type:find("MIDI") then -- MIDI COPIES GET INTO SAME POOL IF JUST SETTING CHUNK SO WE NEED TO SET NEW POOL ID TO NEW COPY
@@ -242,7 +231,7 @@ local function create_item(item, tr, as_start, as_end, mouse_time_pos)
     clonedsource = reaper.PCM_Source_CreateFromFile(filename)
   end
 
-  local new_item_start, new_item_lenght, offset = as_item_position(item, as_start, as_end, mouse_time_pos)
+  local new_item_start, new_item_lenght, offset = as_item_position(item, as_start, as_end, mouse_time_pos, job)
   reaper.SetMediaItemInfo_Value(new_Item, "D_POSITION", new_item_start)
   reaper.SetMediaItemInfo_Value(new_Item, "D_LENGTH", new_item_lenght)
   local newTakeOffset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
@@ -255,15 +244,14 @@ local function create_item(item, tr, as_start, as_end, mouse_time_pos)
   reaper.SetMediaItemInfo_Value(new_Item, "D_VOL", item_volume)
 end
 
-function paste(items, item_track, as_start, as_end, pos_offset, first_track,drag_offset)
+function paste(items, item_track, as_start, as_end, pos_offset, first_track, drag_offset, job)
   if not mouse.tr then
     return
   end -- DO NOT PASTE IF MOUSE IS OUT OF ARRANGE WINDOW
 
   local first_track = drag_offset and mouse.tr or first_track
-
   local offset_track, under_last_tr = generic_track_offset(item_track, first_track)
-  if under_last_tr and under_last_tr > 0 then
+  if not job and under_last_tr and under_last_tr > 0 then
     for t = 1, under_last_tr do
       reaper.InsertTrackAtIndex((reaper.GetNumTracks()), true)
     end
@@ -271,17 +259,20 @@ function paste(items, item_track, as_start, as_end, pos_offset, first_track,drag
     offset_track = reaper.GetTrack(0, reaper.GetNumTracks() - 1)
   end
 
+  if job == "duplicate" then
+    offset_track = item_track
+  end
   -- for w = 1 , mouse.wheel do
   -- local wheel_offset = (w-1) * (as_end - as_start)
   for i = 1, #items do
     local item = items[i]
     local mouse_offset = drag_offset and drag_offset or pos_offset + mouse.p -- + wheel_offset
-    create_item(item, offset_track, as_start, as_end, mouse_offset) -- CREATE ITEMS AT NEW POSITION
+    create_item(item, offset_track, as_start, as_end, mouse_offset, job) -- CREATE ITEMS AT NEW POSITION
   end
   --end
 end
 
-function paste_env(env_track, env_name, env_data, as_start, as_end, pos_offset, first_env_tr, num, drag_offset) -- drag offset is not used, only as a flag for drag move here
+function paste_env(env_track, env_name, env_data, as_start, as_end, pos_offset, first_env_tr, num, drag_offset, job) -- drag offset is not used, only as a flag for drag move here
   if not mouse.tr or not env_data then
     return
   end -- DO NOT PASTE IF MOUSE IS OUT OF ARRANGE WINDOW
@@ -290,7 +281,7 @@ function paste_env(env_track, env_name, env_data, as_start, as_end, pos_offset, 
 
   local offset_track, under_last_tr = generic_track_offset(env_track, first_env_tr)
 
-  if under_last_tr and under_last_tr > 0 then
+  if job and under_last_tr and under_last_tr > 0 then
     for t = 1, under_last_tr do
       reaper.InsertTrackAtIndex((reaper.GetNumTracks()), true)
     end -- IF THE TRACKS ARE BELOW LAST TRACK OF THE PROJECT CREATE HAT TRACKS
@@ -300,6 +291,11 @@ function paste_env(env_track, env_name, env_data, as_start, as_end, pos_offset, 
   local env_offset = GetEnvOffset_MouseOverride(offset_track, env_name, nil, num) --or GetEnvOffset_MatchCriteria(offset_track, env_name)
   local env_paste_offset = mouse.p - as_start -- OFFSET BETWEEN ENVELOPE START AND MOUSE POSITION
   local mouse_offset = drag_offset and mouse.dp or env_paste_offset + pos_offset -- OFFSET BETWEEN MOUSE POSITION AND NEXT AREA SELECTION
+
+  if job == "duplicate" then
+    mouse_offset = as_end - as_start
+    env_offset = env_track
+  end
 
   if env_offset and reaper.ValidatePtr(env_offset, "TrackEnvelope*") then -- IF TRACK HAS ENVELOPES PASTE THEM
     insert_edge_points(env_offset, {as_start, as_end}, mouse_offset, env_track) -- INSERT EDGE POINTS AT CURRENT ENVELOE VALUE AND DELETE WHOLE RANGE INSIDE (DO NOT ALLOW MIXING ENVELOPE POINTS AND THAT WEIRD SHIT)
@@ -335,6 +331,7 @@ function del_env(env_track, as_start, as_end, pos_offset, job)
   else
     insert_edge_points(env_track, as_time_tbl, 0, nil, job)
   end
+  reaper.Envelope_SortPoints(env_track)
 end
 
 function AreaDo(tbl, job, off)
@@ -350,18 +347,27 @@ function AreaDo(tbl, job, off)
     for i = 1, #tbl.sel_info do
       local info = tbl.sel_info[i]
       local first_tr = find_highest_tr(info.track)
-
       if info.items then
         local item_track = info.track
         local item_data = info.items
+        if job == "duplicate" then
+          paste(info.items, item_track, as_start, as_end, pos_offset, first_tr, off, job)
+        end
         if job == "PASTE" then
-          paste(info.items, item_track, as_start, as_end, pos_offset, first_tr,off)
+          paste(info.items, item_track, as_start, as_end, pos_offset, first_tr, off, job)
         end
         if job == "del" or job == "split" then
           split_or_delete_items(item_track, item_data, as_start, as_end, job)
         end
         if job == "stretch" then
           stretch_items(item_data, as_start, as_end)
+        end
+        if job == "move" then
+          --reaper.Main_OnCommand( 42206, 0 )
+          --local target_items = get_items_in_as(item_track, mouse.dp + as_start, mouse.dp + as_end) -- GET ITEMS ON TARGET AREA
+         -- split_or_delete_items(item_track, target_items, mouse.dp + as_start, mouse.dp + as_end , 'del') -- DELETE ITEMS IN TARGET AREA
+          paste(info.items, item_track, as_start, as_end, pos_offset, first_tr, off) -- PASTE ORIGINAL ITEMS
+          split_or_delete_items(item_track, item_data, as_start, as_end , 'del') -- DELETE ITEMS FROM ORIGINAL POSITION
         end
       elseif info.env_name then
         local env_track = info.track
@@ -373,11 +379,21 @@ function AreaDo(tbl, job, off)
         end
         if job == "del" then
           del_env(env_track, as_start, as_end, pos_offset, job)
-          reaper.Envelope_SortPoints(env_track)
+        end
+        if job == "move" then
+          paste_env(env_track, env_name, env_data, as_start, as_end, pos_offset, first_tr, #tbl.sel_info, off)
+          del_env(env_track, as_start, as_end, pos_offset, job)
+        end
+        if job == "duplicate" then
+          paste_env(env_track, env_name, env_data, as_start, as_end, pos_offset, first_tr, #tbl.sel_info, off, job)
         end
       end
     end
-    if job == "del" then
+    if job == "duplicate" then
+      tbl.time_start = tbl.time_start + tbl.time_dur
+      tbl.x, tbl.w = convert_time_to_pixel(tbl.time_start, tbl.time_dur)
+    end
+    if job == "del" or job == "duplicate" then
       tbl.sel_info = GetSelectionInfo(tbl)
     end
   end
@@ -524,7 +540,6 @@ function get_as_tr_env_pts(as_tr, as_start, as_end)
     local retval, time, value, shape, tension, selected = reaper.GetEnvelopePoint(as_tr, i - 1)
 
     if time >= as_start and time <= as_end then
-      --reaper.SetEnvelopePoint(as_tr, i - 1, _, _, _, _, true, _)
       reaper.SetEnvelopePoint(as_tr, i - 1, time, value, shape, tension, true, true)
 
       env_points[#env_points + 1] = {
@@ -537,7 +552,6 @@ function get_as_tr_env_pts(as_tr, as_start, as_end)
         selected = true
       }
     elseif (time > as_start and time > as_end) or (time < as_start and time < as_end) then
-      --reaper.SetEnvelopePoint(as_tr, i - 1, _, _, _, _, false, _)
       reaper.SetEnvelopePoint(as_tr, i - 1, time, value, shape, tension, false, true)
     end
   end
