@@ -40,16 +40,11 @@ function Element:zone(z)
       _, self.w = convert_time_to_pixel(0, self.time_dur)
       --AreaDo({self},"stretch")
     elseif z[1] == "C" then
-      local tracks = z[5]
+      local temp_area = z[5]
       local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
+      --local temp_area_ghost = convert_time_to_pixel(new_L, 0) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
 
-      if not mouse.Ctrl() and false then -- DRAG COPY, disabled updating area start while dragging
-        self.time_start = new_L
-        self.time_start = self.time_start >= 0 and self.time_start or 0
-        self.x = convert_time_to_pixel(self.time_start, 0)
-      end
-
-      local temp_area_ghost = convert_time_to_pixel(new_L, 0) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
+      temp_area.x = convert_time_to_pixel(new_L, 0)
 
       local last_project_tr = get_last_visible_track()
       local last_project_tr_id = reaper.CSurf_TrackToID(last_project_tr, false)
@@ -59,33 +54,24 @@ function Element:zone(z)
       if mouse_delta ~= 0 then
 
         local skip
-        for i = 1, #tracks do
-          if reaper.ValidatePtr(tracks[i].track, "TrackEnvelope*") then -- IF THERE IS ENVELOPE TRACK IN TABLE DO NOT MOVE UP/DOWN
-            skip = true
-            break
-          end
-        end
+        --for i = 1, #tracks do
+        --  if reaper.ValidatePtr(tracks[i].track, "TrackEnvelope*") then -- IF THERE IS ENVELOPE TRACK IN TABLE DO NOT MOVE UP/DOWN
+            --skip = true
+        --    break
+        --  end
+        --end
 
         if not skip then -- IF THERE IS NO ENVELOPE TRACK SELECTED
           -- PREVENT TRACKS TO GO BELLOW OR ABOVE FIRST/LAST PROJECT TRACK 
-          if reaper.CSurf_TrackToID(env_to_track(tracks[1].track), false) + mouse_delta >= 1 and
-            reaper.CSurf_TrackToID(env_to_track(tracks[#tracks].track), false) + mouse_delta <= (last_project_tr_id) then
-            for i = 1, #tracks do --for i = #tracks, 1, -1 do
-              self.sel_info[i].track = generic_track_offset(tracks[i].track, mouse.last_tr)
-            end
-          end
+          --if reaper.CSurf_TrackToID(env_to_track(tracks[1].track), false) + mouse_delta >= 1 and
+           -- reaper.CSurf_TrackToID(env_to_track(tracks[#tracks].track), false) + mouse_delta <= (last_project_tr_id) then
         end
 
       end
-      self.y, self.h = GetTrackTBH(self.sel_info)
-      for i = 1, #self.sel_info do
-        if self.sel_info[i].items then
-          DrawItemGhosts(self.sel_info[i].items, self.sel_info[i].track, z[2], self.time_dur, 0, mouse.tr, new_L - z[2])
-        elseif self.sel_info[i].env_name then
-          DrawEnvGhosts(self.sel_info[i].track, self.sel_info[i].env_name, z[2], self.time_dur, 0, mouse.tr, new_L - z[2])
-        end
-      end
-      self:draw(temp_area_ghost) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
+      temp_area.y, temp_area.h = GetTrackTBH(temp_area.sel_info)
+
+      generic_table_find(temp_area, new_L - z[2], mouse.last_tr)
+      --self:draw(temp_area_ghost) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
     elseif z[1] == "T" then
       local rd = (mouse.r_t - mouse.ort)
       local new_y, new_h = z[2] + rd, z[3] - rd
@@ -168,7 +154,7 @@ function Element:zoneIN(x, y)
 
   if x > (self.x + range2) and x < (self.x + self.w - range2) then
     if y > self.y + range2 and y < (self.y + self.h) - range2 then
-      return {"C", self.time_start, self.time_dur, self.y, self.sel_info}
+      return {"C", self.time_start, self.time_dur, self.y, self}
     end
   end
 end
