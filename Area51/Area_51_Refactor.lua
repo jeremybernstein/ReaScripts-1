@@ -748,23 +748,28 @@ end
 
 function GetEnvOffset_MouseOverride(tr, env, mov_offset, num)
    local m_env = reaper.ValidatePtr(mouse.tr, "TrackEnvelope*") and mouse.tr or nil
-   if m_env and not mov_offset and #Areas_TB == 1 then -- OVERRIDE MODE AND WE ARE NOT MOVING AREA AND THERE ARE IS ONLY ONE AREA (DISABLED IF THERE ARE MULTIPLE AREAS)
+   if m_env then -- OVERRIDE MODE AND WE ARE NOT MOVING AREA AND THERE ARE IS ONLY ONE AREA (DISABLED IF THERE ARE MULTIPLE AREAS)
+   --if m_env and #Areas_TB == 1 then -- OVERRIDE MODE AND WE ARE NOT MOVING AREA AND THERE ARE IS ONLY ONE AREA (DISABLED IF THERE ARE MULTIPLE AREAS)
+   --if m_env and not mov_offset and #Areas_TB == 1 then -- OVERRIDE MODE AND WE ARE NOT MOVING AREA AND THERE ARE IS ONLY ONE AREA (DISABLED IF THERE ARE MULTIPLE AREAS)
       local m_env_par = reaper.Envelope_GetParentTrack( m_env )
       local _, m_num = GetEnvNum(tr, m_env)
       if m_num then
          local _, env_num = GetEnvNum(tr, env)
+         msg(env_num)
          if not env_num then return end
          local offtr = m_num - env_num
          local offset = num > 1 and env_num or num
          local tr_env_off  = reaper.GetTrackEnvelope( tr, (env_num - 1) + (offtr + offset-1 )) -- 2 IS BECAUSE WE DID NOT ACCOUT I-1 TWO TIMES, IN M_NUM + (m_num - env_num)
-         if tr_env_off then return tr_env_off end
+         if tr_env_off then
+            return tr_env_off
+         end
      end
    else -- MATCH MODE
       local tr_env = GetEnvNum(tr, env)
       if tr_env then return tr_env end
       return tr
    end
-   if mov_offset then return tr end -- IF WE ARE MOVING AREA
+   --if mov_offset then return tr end -- IF WE ARE MOVING AREA
 end
 
 function env_to_track(tr)
@@ -794,9 +799,6 @@ function generic_track_offset(as_tr, offset_tracks, mov_offset, num)--, first_tr
       last_tr = reaper.Envelope_GetParentTrack(last_tr)
    end
 
-   local first_tr_id = reaper.CSurf_TrackToID(first_tr, false)
-   local last_tr_id = reaper.CSurf_TrackToID(last_tr, false)
-
    if reaper.ValidatePtr(as_tr, "TrackEnvelope*") then
       as_tr = reaper.Envelope_GetParentTrack(as_tr)
    end
@@ -806,6 +808,9 @@ function generic_track_offset(as_tr, offset_tracks, mov_offset, num)--, first_tr
    if reaper.ValidatePtr(cur_m_tr, "TrackEnvelope*") then
       cur_m_tr = reaper.Envelope_GetParentTrack(cur_m_tr)
    end
+
+   local first_tr_id = reaper.CSurf_TrackToID(first_tr, false)
+   local last_tr_id = reaper.CSurf_TrackToID(last_tr, false) -- WE NEED TO USE LAST TRACK BECAUSE IT WILL BREAK THE LOOP AT FIRST FOUND TRACK (IF CONDITION IS MET THEN IT WILL STOP ON FIRST TRACK IN LOOP AND NOT GO TO LAST TRACK)
 
    local offset_tr_id = reaper.CSurf_TrackToID(offset_tr, false)
    local as_tr_id = reaper.CSurf_TrackToID(as_tr, false)
@@ -831,17 +836,16 @@ function generic_track_offset(as_tr, offset_tracks, mov_offset, num)--, first_tr
          new_as_tr = last_project_tr
       end
    elseif offset_tracks[3] then
-      if mouse_delta + (last_tr_id-num) >= 0 and mouse_delta + last_tr_id <= last_project_tr_id then
-         new_as_tr = reaper.CSurf_TrackFromID(as_pos_offset, false)
+      if mouse_delta + (last_tr_id-num) >= 0 and mouse_delta + last_tr_id <= last_project_tr_id then -- WE NEED TO USE LAST TRACK TO CALCULATE FIRST TRACK "(last_tr_id-num) BECAUSE IT WILL BREAK THE LOOP AT FIRST FOUND TRACK (IF CONDITION IS MET THEN IT WILL STOP ON FIRST TRACK IN LOOP AND NOT GO TO LAST TRACK)
+         new_as_tr = reaper.CSurf_TrackFromID(as_pos_offset, false) -- RETURN OFFSET TRACK IF SELECTION IS UNDER FIRST TRACK AND LAST TRACK (PROJECT)
       else
-         new_as_tr = as_tr
+         new_as_tr = as_tr -- IF TRACK IS ABOVE OR BELLOW FIRST AND LAST PROJECT TRACK THEN RETURN SAME TRACK
       end
    end
-
-
+   
    --local new_env_tr = num and GetEnvOffset_MouseOverride(new_as_tr, env_name, mov_offset, num)
    local under_last_tr = (as_pos_offset - last_project_tr_id > 0) and as_pos_offset - last_project_tr_id -- HOW MANY TRACKS BELOW LAST PROJECT TRACK IS THE OFFSET
-   return new_as_tr, under_last_tr--, new_env_tr
+   return new_as_tr, under_last_tr
 end
 
 function lowest_start()
@@ -857,7 +861,6 @@ end
 
 function generic_table_find(temp_tbl, time_off, tr_off)
    local as_tbl = active_as and {active_as} or Areas_TB -- ACTIVE AS OR WHOLE AREA TABLE
-
    for a = 1, #as_tbl do
       local tbl = as_tbl[a]
 
@@ -865,26 +868,34 @@ function generic_table_find(temp_tbl, time_off, tr_off)
       pos_offset = pos_offset + (tbl.time_start - lowest_start()) --  OFFSET AREA SELECTIONS TO MOUSE POSITION
       local as_start, as_dur = tbl.time_start, tbl.time_dur
 
+      local first_tr, last_tr = tbl.sel_info[1].track, tbl.sel_info[#tbl.sel_info].track
+      --local first_tr, last_tr = find_highest_tr()
       for i = 1, #tbl.sel_info do
          local sel_info = tbl.sel_info[i]
-         local first_tr, last_tr = find_highest_tr()
          if sel_info.items then
             local item_track = sel_info.track
             local new_tr, under = generic_track_offset(item_track, {first_tr,last_tr,tr_off}, pos_offset, #tbl.sel_info)
-            if temp_tbl then sel_info.track = new_tr end
+            if temp_tbl then  -- DRAGGING
+               sel_info.track = new_tr
+            end
             local item_data = sel_info.items
             DrawItemGhosts(item_data, new_tr, as_start, pos_offset, time_off, under)
          elseif sel_info.env_points then
             local env_track = sel_info.track
             local new_tr, under = generic_track_offset(env_track, {first_tr,last_tr,tr_off}, pos_offset,  #tbl.sel_info)
+            --msg(new_tr)
             local env_name = sel_info.env_name
             local new_env = GetEnvOffset_MouseOverride(new_tr, env_name, time_off, #tbl.sel_info)
-            if temp_tbl then sel_info.track = new_env end
+            --msg(new_env)
+            if temp_tbl then
+               sel_info.track = new_env
+               as_start,as_end = temp_tbl.time_start, temp_tbl.time_end -- BECAUSE ENVELOPE HAVE NO GUID I HAVE TO MAKE SOMETHING UP WITH THEM - GHOST ID IS MADE FROM TRACK-TO-STRING AND CURRENT TIME
+               env_track = temp_tbl.sel_info[i].track                   -- SINCE ENV GHOSTS ARE HARD TO WORK WITH BECAUSE THEY HAVE NO GUID I HAD TO MAKE SOMETHING UP - GHOST ID IS MADE FROM TRACK-TO-STRING AND CURRENT TIME
+            end
             DrawEnvGhosts(env_track, new_env, new_tr, as_start, as_dur, pos_offset, time_off, under)
          end
       end
    end
-   --if temp_tbl then temp_tbl:draw() end
 end
 
 local function Composite(src_x, src_y, src_w, src_h, dest, dest_x, dest_y, dest_w, dest_h)

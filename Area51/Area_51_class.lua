@@ -47,7 +47,7 @@ function Element:zone(z)
       local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
       --local temp_area_ghost = convert_time_to_pixel(new_L, 0) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE
       self.time_start = new_L
-      self.time_start = self.time_start >= 0 and self.time_start or 0 
+      self.time_start = self.time_start >= 0 and self.time_start or 0
       self.x = convert_time_to_pixel(new_L, 0)
       self.y, self.h = GetTrackTBH(self.sel_info)
       --local last_project_tr = get_last_visible_track()
@@ -81,7 +81,7 @@ function Element:zone(z)
       --temp_area.y, temp_area.h = GetTrackTBH(temp_area.sel_info)
       generic_table_find(TEMP_AREA, new_L - z[2], mouse.last_tr)
       --TEMP_AREA.y, TEMP_AREA.h = GetTrackTBH(TEMP_AREA.sel_info)
-      self:draw() -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
+      --self:draw() -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
     elseif z[1] == "T" then
       local rd = (mouse.r_t - mouse.ort)
       local new_y, new_h = z[2] + rd, z[3] - rd
@@ -112,7 +112,8 @@ function Element:zone(z)
     self.sel_info = GetSelectionInfo(self)
     GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2] + z[3])
   end
-  if z[1] ~= "C" then self:draw() end
+  --if z[1] ~= "C" then self:draw() end
+  self:draw()
 end
 
 function Element:update_xywh()
