@@ -539,10 +539,10 @@ function create_item_from_buffer_info(item, offset_track, as_start, as_end, mous
   local new_Item = reaper.AddMediaItemToTrack(track)
   local new_Take = reaper.AddTakeToMediaItem(new_Item)
   reaper.SetItemStateChunk(new_Item, item.chunk, true)
-  
+
   local new_item_start, new_item_lenght, offset = as_item_position2(item.item_lenght, item.item_start, item.item_dur, as_start, as_end, mouse_time_pos) 
   reaper.SetMediaItemTakeInfo_Value(new_Take, "D_STARTOFFS", item.take_offset + offset) --Need to calculate offset better for items with different playrates
-  
+
   reaper.SetMediaItemInfo_Value(new_Item, "D_POSITION", new_item_start) 
   reaper.SetMediaItemInfo_Value(new_Item, "D_LENGTH", new_item_lenght) 
 end

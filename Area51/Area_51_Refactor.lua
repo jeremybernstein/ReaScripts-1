@@ -45,7 +45,7 @@ end
 local main_wnd = reaper.GetMainHwnd() -- GET MAIN WINDOW
 local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRACK VIEW
 local track_window_dc = reaper.JS_GDI_GetWindowDC(track_window)
-local Areas_TB = {}
+Areas_TB = {}
 local Key_TB = {}
 local active_as
 local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
@@ -774,13 +774,30 @@ function env_to_track(tr)
    return tr
 end
 
-function generic_track_offset(as_tr, offset_tr, mov_offset, num)--, first_tr, num)
+function generic_track_offset(as_tr, offset_tracks, mov_offset, num)--, first_tr, num)
    --  GET ALL ENVELOPE TRACKS PARENT MEDIA TRACKS (SINCE ENVELOPE TRACKS HAVE NO ID WHICH WE USE TO MAKE OFFSET)
    local cur_m_tr = mouse.tr -- ADD TEMP MOUSE TRACK (DO NOT CONVERT) BELOW
    --local env_name
 
+   --msg(offset_tracks[3])
+   local mouse_delta = reaper.CSurf_TrackToID(env_to_track(cur_m_tr), false) - reaper.CSurf_TrackToID(env_to_track(mouse.last_tr), false)
+
+   local offset_tr = offset_tracks[3] and offset_tracks[3] or offset_tracks[1]
+
+   local first_tr = offset_tracks[1]
+   local last_tr =  offset_tracks[2]
+
+   if reaper.ValidatePtr(first_tr, "TrackEnvelope*") then
+      first_tr = reaper.Envelope_GetParentTrack(first_tr)
+   end
+   if reaper.ValidatePtr(last_tr, "TrackEnvelope*") then
+      last_tr = reaper.Envelope_GetParentTrack(last_tr)
+   end
+
+   local first_tr_id = reaper.CSurf_TrackToID(first_tr, false)
+   local last_tr_id = reaper.CSurf_TrackToID(last_tr, false)
+
    if reaper.ValidatePtr(as_tr, "TrackEnvelope*") then
-      --env_name = Get_envelope_track_info(as_tr)
       as_tr = reaper.Envelope_GetParentTrack(as_tr)
    end
    if reaper.ValidatePtr(offset_tr, "TrackEnvelope*") then
@@ -805,10 +822,22 @@ function generic_track_offset(as_tr, offset_tr, mov_offset, num)--, first_tr, nu
    local as_pos_offset = as_tr_id + as_tr_offset -- ADD MOUSE OFFSET TO CURRENT TRACK ID
    as_pos_offset = find_visible_tracks(as_pos_offset) or as_pos_offset -- FIND FIRST AVAILABLE VISIBLE TRACK IF HIDDEN
 
-   local new_as_tr =
-      as_pos_offset < last_project_tr_id and -- POSITION ITEMS TO MOUSE POSITION
-      reaper.CSurf_TrackFromID(as_pos_offset, false) or
-      last_project_tr
+   local new_as_tr
+
+   if copy then
+      if as_pos_offset < last_project_tr_id then -- POSITION ITEMS TO MOUSE POSITION
+         new_as_tr =reaper.CSurf_TrackFromID(as_pos_offset, false)
+      else
+         new_as_tr = last_project_tr
+      end
+   elseif offset_tracks[3] then
+      if mouse_delta + (last_tr_id-num) >= 0 and mouse_delta + last_tr_id <= last_project_tr_id then
+         new_as_tr = reaper.CSurf_TrackFromID(as_pos_offset, false)
+      else
+         new_as_tr = as_tr
+      end
+   end
+
 
    --local new_env_tr = num and GetEnvOffset_MouseOverride(new_as_tr, env_name, mov_offset, num)
    local under_last_tr = (as_pos_offset - last_project_tr_id > 0) and as_pos_offset - last_project_tr_id -- HOW MANY TRACKS BELOW LAST PROJECT TRACK IS THE OFFSET
@@ -828,7 +857,7 @@ end
 
 function generic_table_find(temp_tbl, time_off, tr_off)
    local as_tbl = active_as and {active_as} or Areas_TB -- ACTIVE AS OR WHOLE AREA TABLE
-   --as_tbl = temp_tbl and {temp_tbl} or as_tbl
+
    for a = 1, #as_tbl do
       local tbl = as_tbl[a]
 
@@ -838,54 +867,24 @@ function generic_table_find(temp_tbl, time_off, tr_off)
 
       for i = 1, #tbl.sel_info do
          local sel_info = tbl.sel_info[i]
-         local first_tr = tr_off and tr_off or find_highest_tr()
+         local first_tr, last_tr = find_highest_tr()
          if sel_info.items then
             local item_track = sel_info.track
-            local new_tr, under = generic_track_offset(item_track, first_tr, pos_offset)
+            local new_tr, under = generic_track_offset(item_track, {first_tr,last_tr,tr_off}, pos_offset, #tbl.sel_info)
             if temp_tbl then sel_info.track = new_tr end
             local item_data = sel_info.items
             DrawItemGhosts(item_data, new_tr, as_start, pos_offset, time_off, under)
          elseif sel_info.env_points then
             local env_track = sel_info.track
-            local new_tr, under = generic_track_offset(env_track, first_tr, pos_offset)
+            local new_tr, under = generic_track_offset(env_track, {first_tr,last_tr,tr_off}, pos_offset,  #tbl.sel_info)
             local env_name = sel_info.env_name
             local new_env = GetEnvOffset_MouseOverride(new_tr, env_name, time_off, #tbl.sel_info)
             if temp_tbl then sel_info.track = new_env end
             DrawEnvGhosts(env_track, new_env, new_tr, as_start, as_dur, pos_offset, time_off, under)
          end
-         if temp_tbl then
-               local temp_sel_info = temp_tbl.sel_info[i]
-               if reaper.ValidatePtr(temp_sel_info.track, "TrackEnvelope*") then
-                  local env_track = tbl.sel_info[i].track
-                  local new_tr, under = generic_track_offset(env_track, first_tr, pos_offset)
-                  local env_name = temp_sel_info.env_name
-                  local new_env = GetEnvOffset_MouseOverride(new_tr, env_name, time_off, #temp_sel_info)
-                  --temp_sel_info.track = new_env
-               elseif reaper.ValidatePtr(temp_sel_info.track, "MediaTrack*") then
-                  local new_tr, under = generic_track_offset(tbl.sel_info[i].track, first_tr, pos_offset)
-                  --temp_sel_info.track = new_tr
-               end
-         end
-         --[[
-         if temp_tbl then
-            for t = 1, #temp_tbl.sel_info do
-               local temp_sel_info = temp_tbl.sel_info[t]
-               if reaper.ValidatePtr(temp_sel_info.track, "TrackEnvelope*") then
-                  local env_track = temp_sel_info.track
-                  local new_tr, under = generic_track_offset(env_track, first_tr, pos_offset)
-                  local env_name = temp_sel_info.env_name
-                  local new_env = GetEnvOffset_MouseOverride(new_tr, env_name, time_off, #tbl.temp_sel_info)
-                  temp_sel_info.track = new_env
-               elseif reaper.ValidatePtr(temp_sel_info.track, "MediaTrack*") then
-                  local new_tr, under = generic_track_offset(temp_sel_info.track, first_tr, pos_offset)
-                  temp_sel_info.track = new_tr
-               end
-            end
-         end
-         ]]
       end
    end
-   if temp_tbl then temp_tbl:draw() end
+   --if temp_tbl then temp_tbl:draw() end
 end
 
 local function Composite(src_x, src_y, src_w, src_h, dest, dest_x, dest_y, dest_w, dest_h)
@@ -974,9 +973,9 @@ function find_highest_tr(job)
       local tbl = as_tbl[i]
       for j = 1, #tbl.sel_info do
          if tbl.sel_info[j].items or not job then
-            return tbl.sel_info[j].track
+            return tbl.sel_info[j].track, tbl.sel_info[#tbl.sel_info].track
          elseif tbl.sel_info[j].env_name or job then
-            return tbl.sel_info[j].track
+            return tbl.sel_info[j].track, tbl.sel_info[#tbl.sel_info].track
          end
       end
    end

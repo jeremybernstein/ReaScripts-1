@@ -3,6 +3,8 @@ local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRAC
 local cur_path = package.cursor
 
 local Element = {}
+local ZONE_BUFFER
+local TEMP_AREA
 
 function color()
 end
@@ -40,38 +42,46 @@ function Element:zone(z)
       _, self.w = convert_time_to_pixel(0, self.time_dur)
       --AreaDo({self},"stretch")
     elseif z[1] == "C" then
-      local temp_area = z[5]
+      --AAA = TEMP_AREA
+      --local temp_area = z[5]
       local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
-      --local temp_area_ghost = convert_time_to_pixel(new_L, 0) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
-
-      temp_area.x = convert_time_to_pixel(new_L, 0)
-
-      local last_project_tr = get_last_visible_track()
-      local last_project_tr_id = reaper.CSurf_TrackToID(last_project_tr, false)
-      local mouse_delta = reaper.CSurf_TrackToID(env_to_track(mouse.tr), false) - reaper.CSurf_TrackToID(env_to_track(mouse.last_tr), false)
+      --local temp_area_ghost = convert_time_to_pixel(new_L, 0) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE
+      self.time_start = new_L
+      self.time_start = self.time_start >= 0 and self.time_start or 0 
+      self.x = convert_time_to_pixel(new_L, 0)
+      self.y, self.h = GetTrackTBH(self.sel_info)
+      --local last_project_tr = get_last_visible_track()
+      --local last_project_tr_id = reaper.CSurf_TrackToID(last_project_tr, false)
+      --local mouse_delta = reaper.CSurf_TrackToID(env_to_track(mouse.tr), false) - reaper.CSurf_TrackToID(env_to_track(mouse.last_tr), false)
 
       -- OFFSET TRACKS BASED ON AREA POSITION (TRACKS FOLLOW AREA)
-      if mouse_delta ~= 0 then
+      --msg(mouse_delta)
+      --if mouse_delta ~= 0 then
 
-        local skip
+       -- local skip
         --for i = 1, #tracks do
         --  if reaper.ValidatePtr(tracks[i].track, "TrackEnvelope*") then -- IF THERE IS ENVELOPE TRACK IN TABLE DO NOT MOVE UP/DOWN
             --skip = true
         --    break
+
+        
         --  end
         --end
 
-        if not skip then -- IF THERE IS NO ENVELOPE TRACK SELECTED
+        --if not skip then -- IF THERE IS NO ENVELOPE TRACK SELECTED
           -- PREVENT TRACKS TO GO BELLOW OR ABOVE FIRST/LAST PROJECT TRACK 
           --if reaper.CSurf_TrackToID(env_to_track(tracks[1].track), false) + mouse_delta >= 1 and
            -- reaper.CSurf_TrackToID(env_to_track(tracks[#tracks].track), false) + mouse_delta <= (last_project_tr_id) then
-        end
+        --end
 
-      end
-      temp_area.y, temp_area.h = GetTrackTBH(temp_area.sel_info)
+      --end
 
-      generic_table_find(temp_area, new_L - z[2], mouse.last_tr)
-      --self:draw(temp_area_ghost) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
+      --msg(temp_area.sel_info[1].track)
+      --temp_area.y, temp_area.h = GetTrackTBH(temp_area.sel_info)
+      --temp_area.y, temp_area.h = GetTrackTBH(temp_area.sel_info)
+      generic_table_find(TEMP_AREA, new_L - z[2], mouse.last_tr)
+      --TEMP_AREA.y, TEMP_AREA.h = GetTrackTBH(TEMP_AREA.sel_info)
+      self:draw() -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
     elseif z[1] == "T" then
       local rd = (mouse.r_t - mouse.ort)
       local new_y, new_h = z[2] + rd, z[3] - rd
@@ -187,8 +197,18 @@ function Element:mouseM_Down()
   --return m_state&64==64 and self:pointIN(mouse_ox, mouse_oy)
 end
 --------
-local ZONE_BUFFER
-local TEMP_AREA
+local function deepCopy(original)
+  local copy = {}
+  for k, v in pairs(original) do
+      -- as before, but if we find a table, make sure we copy that too
+      if type(v) == 'table' then
+          v = deepCopy(v)
+      end
+      copy[k] = v
+  end
+  return copy
+end
+
 function Element:track()
   if CREATING then
     return
@@ -198,12 +218,14 @@ function Element:track()
     if not ZONE then
       ZONE_BUFFER = self:mouseZONE()
       ZONE = self:mouseZONE()[1]
-      TEMP_AREA = self
+      TEMP_AREA = deepCopy(self)
     end
   end
 
+  --AAA = TEMP_AREA
+
   if ZONE and self.guid == TEMP_AREA.guid then
-    TEMP_AREA:zone(ZONE_BUFFER)
+    self:zone(ZONE_BUFFER)
   end -- PREVENT OTHER AREAS TRIGGERING THIS LOOP AGAIN
 
   A_M_Block = self:mouseIN() or self:mouseDown() or ZONE and true or nil
