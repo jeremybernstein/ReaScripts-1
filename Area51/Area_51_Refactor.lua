@@ -69,26 +69,36 @@ local function Has_val(tab, val, guid)
    end
 end
 
+function to_screen(x,y)
+   local sx, sy = reaper.JS_Window_ClientToScreen( track_window, x, y )
+   return sx, sy
+end
+
+function to_client(x,y)
+   local cx, cy = reaper.JS_Window_ScreenToClient( track_window, x, y )
+   return cx, cy
+end
+
 -- MAIN FUNCTION FOR FINDING TRACKS
 -- WHEN TRACK IS FOUND IT RETURNS ITS POSITION WITH OTHER VALUES
 -- TOP Y (_t), HEIGHT (_h) and BOT Y (_b)
 local TBH
 function GetTracksXYH()
    TBH = {}
-   local _, x_view_start, y_view_start, x_view_end, y_view_end = reaper.JS_Window_GetRect(track_window)
+   --local _, x_view_start, y_view_start, x_view_end, y_view_end = reaper.JS_Window_GetRect(track_window)
    -- ONLY ADD MASTER TRACK IF VISIBLE IN TCP
    local  master_tr_visibility = reaper.GetMasterTrackVisibility()
    if master_tr_visibility == 1 or master_tr_visibility == 3 then
       local master_tr = reaper.GetMasterTrack(0)
       local m_tr_h = reaper.GetMediaTrackInfo_Value(master_tr, "I_TCPH")
-      local m_tr_t = reaper.GetMediaTrackInfo_Value(master_tr, "I_TCPY") + y_view_start
+      local m_tr_t = reaper.GetMediaTrackInfo_Value(master_tr, "I_TCPY") --+ y_view_start
       local m_tr_b = m_tr_t + m_tr_h
-      TBH[master_tr] = {t = m_tr_t, b = m_tr_b, h = m_tr_h} 
+      TBH[master_tr] = {t = m_tr_t, b = m_tr_b, h = m_tr_h}
    end
    for i = 1, reaper.CountTracks(0) do
       local tr = reaper.GetTrack(0, i - 1)
       local tr_h = reaper.GetMediaTrackInfo_Value(tr, "I_TCPH")
-      local tr_t = reaper.GetMediaTrackInfo_Value(tr, "I_TCPY") + y_view_start
+      local tr_t = reaper.GetMediaTrackInfo_Value(tr, "I_TCPY") --+ y_view_start
       local tr_b = tr_t + tr_h
       TBH[tr] = {t = tr_t, b = tr_b, h = tr_h}
       for j = 1, reaper.CountTrackEnvelopes(tr) do
@@ -125,7 +135,7 @@ function GetTracksFromRange(y_t, y_b)
 end
 
 -- FINDS TRACK THAT IS UNDER MOUSE AND RETURNS ITS POSITION AND VALUES 
-local function GetTracksFromMouse(x, y)
+function GetTracksFromMouse(x, y)
    local track, env_info = reaper.GetTrackFromPoint(x, y)
 
    if track == reaper.GetMasterTrack( 0 ) and  reaper.GetMasterTrackVisibility() == 0 then return end -- IGNORE DOCKED MASTER TRACK
@@ -150,7 +160,7 @@ local function Get_Set_Position_In_Arrange(x, y, w)
    local _, x_view_start, y_view_start, x_view_end, y_view_end = reaper.JS_Window_GetRect(track_window) -- GET TRACK WINDOW X-Y Selection
    if x or y or w then
       x = Round(x * zoom_lvl) - Arr_pixel
-      y = y - y_view_start
+      y = y -- y_view_start
       w = Round(w * zoom_lvl)
       return x, y, w
    else
@@ -472,7 +482,7 @@ end
 
 -- FOR VISUALISING COPY AND PASTE GET CURRENT AREAS ITEMS/ENVELOPE IMAGES 
 -- THIS IS CALLED ONLY ONCE WHEN INITIAL AREA IS CREATED
-local ghosts = {}
+ghosts = {}
 function GetGhosts(data, as_start, as_end, job, old_time)
    for i = 1, #data do
       if data[i].items then
@@ -499,16 +509,22 @@ function GetGhosts(data, as_start, as_end, job, old_time)
                   h = h,
                   i_s = item_start,
                   i_l = item_lenght,
+                  id_time = as_start + (as_end - as_start)
                }
             else
-               reaper.JS_LICE_Clear( ghosts[item_ghost_id].bm, 0 )
-               reaper.JS_LICE_FillRect( ghosts[item_ghost_id].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
-               draw_peak(peaks, ghosts[item_ghost_id].bm, ghosts[item_ghost_id].p, 0, ghosts[item_ghost_id].l, item_h-19)
-               ghosts[item_ghost_id].p = x
-               ghosts[item_ghost_id].l = w
-               ghosts[item_ghost_id].h = h
-               ghosts[item_ghost_id].i_s = item_start
-               ghosts[item_ghost_id].i_l = item_lenght
+               for k, v in pairs(ghosts) do
+                  if k == item_ghost_id and v.id_time == old_time then
+                     reaper.JS_LICE_Clear( ghosts[item_ghost_id].bm, 0 )
+                     reaper.JS_LICE_FillRect( ghosts[item_ghost_id].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
+                     draw_peak(peaks, ghosts[item_ghost_id].bm, ghosts[item_ghost_id].p, 0, ghosts[item_ghost_id].l, item_h-19)
+                     ghosts[item_ghost_id].p = x
+                     ghosts[item_ghost_id].l = w
+                     ghosts[item_ghost_id].h = h
+                     ghosts[item_ghost_id].i_s = item_start
+                     ghosts[item_ghost_id].i_l = item_lenght
+                     ghosts[item_ghost_id].id_time = as_start + (as_end - as_start)
+                  end
+               end
             end
          end
       elseif data[i].env_points then
@@ -599,12 +615,14 @@ end
 
 -- WHEN INITIAL AREA IS CREATED GET ALL DATA OF THAT AREA FROM TRACKS 
 -- GET ITEMS, ENVELOPES, ENVELOPE POINTS, AI IF ANY EXIST
+local oldpar
 local function GetTrackData(tbl, as_start, as_end)
    for i = 1, #tbl do
       if reaper.ValidatePtr(tbl[i].track, "MediaTrack*") then
          tbl[i].items = get_items_in_as(tbl[i].track, as_start, as_end) -- TRACK MEDIA ITEMS
       elseif reaper.ValidatePtr(tbl[i].track, "TrackEnvelope*") then
          local _, env_name = reaper.GetEnvelopeName(tbl[i].track)
+         local env_par = reaper.Envelope_GetParentTrack(tbl[i].track)
          tbl[i].env_name = env_name -- ENVELOPE NAME
          tbl[i].env_points = get_as_tr_env_pts(tbl[i].track, as_start, as_end) -- ENVELOPE POINTS
          tbl[i].AIs = get_as_tr_AI(tbl[i].track, as_start, as_end) -- AUTOMATION ITEMS
@@ -722,15 +740,20 @@ local function find_visible_tracks(cur_offset_id) -- RETURN FIRST VISIBLE TRACK
    end
 end
 
-function GetEnvNum(tr, env)
+function GetEnvNum(tr, env, m_tr)
+   --local tr = m_tr and reaper.Envelope_GetParentTrack( m_tr ) or tr
    for i = 1, reaper.CountTrackEnvelopes(tr) do
       local tr_env = reaper.GetTrackEnvelope(tr, i - 1)
       local _, env_name = reaper.GetEnvelopeName(tr_env)
       --if env_name == env then
       if tr_env == env or env_name == env then
          return tr_env, i -- MATCH MODE
+      else
+       --  msg("par")
+       --  return tr, 1--reaper.CountTrackEnvelopes(tr)
       end
    end
+   --return tr, 1
 end
 
 function Get_envelope_track_info(tr)
@@ -740,26 +763,47 @@ function Get_envelope_track_info(tr)
       local tr_env = reaper.GetTrackEnvelope(src_env_parent_tr, i - 1)
       local _, env_name = reaper.GetEnvelopeName(tr_env)
       if env_name == src_env_name then
+         return i
          --return tr_env, i -- MATCH MODE
       end
    end
    return src_env_name
 end
 
-function GetEnvOffset_MouseOverride(tr, env, mov_offset, num)
+function GetEnvOffset_MouseOverride2(tr, env, mov_offset, num)
    local m_env = reaper.ValidatePtr(mouse.tr, "TrackEnvelope*") and mouse.tr or nil
    if m_env then -- OVERRIDE MODE AND WE ARE NOT MOVING AREA AND THERE ARE IS ONLY ONE AREA (DISABLED IF THERE ARE MULTIPLE AREAS)
-   --if m_env and #Areas_TB == 1 then -- OVERRIDE MODE AND WE ARE NOT MOVING AREA AND THERE ARE IS ONLY ONE AREA (DISABLED IF THERE ARE MULTIPLE AREAS)
-   --if m_env and not mov_offset and #Areas_TB == 1 then -- OVERRIDE MODE AND WE ARE NOT MOVING AREA AND THERE ARE IS ONLY ONE AREA (DISABLED IF THERE ARE MULTIPLE AREAS)
       local m_env_par = reaper.Envelope_GetParentTrack( m_env )
-      local _, m_num = GetEnvNum(tr, m_env)
+      --local _, m_num = GetEnvNum(tr, m_env)
+      local _, m_num = GetEnvNum(m_env_par, m_env) -- ENVELOPE NUM UNDER MOUSE
       if m_num then
+         local first_env = 1
+         local last_env = reaper.CountTrackEnvelopes(tr)
+        -- msg(Get_envelope_track_info(tr))
          local _, env_num = GetEnvNum(tr, env)
-         msg(env_num)
-         if not env_num then return end
+
+         --env_num = env_num and env_num or m_num -- if track has no source envelope get track under envelope
+
+         --if not env_num then return end
          local offtr = m_num - env_num
-         local offset = num > 1 and env_num or num
-         local tr_env_off  = reaper.GetTrackEnvelope( tr, (env_num - 1) + (offtr + offset-1 )) -- 2 IS BECAUSE WE DID NOT ACCOUT I-1 TWO TIMES, IN M_NUM + (m_num - env_num)
+
+         local offset = env_num + offtr-- num > 1 and env_num or num
+         
+         local tr_env_off = reaper.GetTrackEnvelope( tr, (offset-1)-m_num)
+         
+         --local tr_env_off
+
+         --if offset >= first_env and offset <= last_env then
+          --  tr_env_off = reaper.GetTrackEnvelope( tr, (env_num - 1) + (offtr + offset-1 )) -- 2 IS BECAUSE WE DID NOT ACCOUT I-1 TWO TIMES, IN M_NUM + (m_num - env_num)
+         --else
+            --msg("B")
+            --local env_par = reaper.Envelope_GetParentTrack( tr )
+            --msg(env_par)
+            --tr_env_off = tr
+         --end
+         --msg(offset)
+         --tr_env_off = reaper.GetTrackEnvelope( tr, (env_num - 1) + (offtr + offset-1 )) -- 2 IS BECAUSE WE DID NOT ACCOUT I-1 TWO TIMES, IN M_NUM + (m_num - env_num)
+         --msg(tr_env_off)
          if tr_env_off then
             return tr_env_off
          end
@@ -769,7 +813,7 @@ function GetEnvOffset_MouseOverride(tr, env, mov_offset, num)
       if tr_env then return tr_env end
       return tr
    end
-   --if mov_offset then return tr end -- IF WE ARE MOVING AREA
+  -- if mov_offset then return tr end -- IF WE ARE MOVING AREA
 end
 
 function env_to_track(tr)
@@ -782,15 +826,13 @@ end
 function generic_track_offset(as_tr, offset_tracks, mov_offset, num)--, first_tr, num)
    --  GET ALL ENVELOPE TRACKS PARENT MEDIA TRACKS (SINCE ENVELOPE TRACKS HAVE NO ID WHICH WE USE TO MAKE OFFSET)
    local cur_m_tr = mouse.tr -- ADD TEMP MOUSE TRACK (DO NOT CONVERT) BELOW
-   --local env_name
 
-   --msg(offset_tracks[3])
-   local mouse_delta = reaper.CSurf_TrackToID(env_to_track(cur_m_tr), false) - reaper.CSurf_TrackToID(env_to_track(mouse.last_tr), false)
-
-   local offset_tr = offset_tracks[3] and offset_tracks[3] or offset_tracks[1]
+   local mouse_delta = reaper.CSurf_TrackToID(env_to_track(mouse.tr), false) - reaper.CSurf_TrackToID(env_to_track(mouse.last_tr), false)
 
    local first_tr = offset_tracks[1]
    local last_tr =  offset_tracks[2]
+   local offset_tr = offset_tracks[3] and offset_tracks[3] or offset_tracks[1]
+
 
    if reaper.ValidatePtr(first_tr, "TrackEnvelope*") then
       first_tr = reaper.Envelope_GetParentTrack(first_tr)
@@ -829,21 +871,20 @@ function generic_track_offset(as_tr, offset_tracks, mov_offset, num)--, first_tr
 
    local new_as_tr
 
-   if copy then
-      if as_pos_offset < last_project_tr_id then -- POSITION ITEMS TO MOUSE POSITION
-         new_as_tr =reaper.CSurf_TrackFromID(as_pos_offset, false)
+   if copy then -- COPY PASTE MODE
+      if as_pos_offset < last_project_tr_id then -- IF NEW TRACK IS BELLOW LAST PROJECT TRACK
+         new_as_tr = reaper.CSurf_TrackFromID(as_pos_offset, false)
       else
          new_as_tr = last_project_tr
       end
-   elseif offset_tracks[3] then
+   elseif offset_tracks[3] then -- DRAG MODE
       if mouse_delta + (last_tr_id-num) >= 0 and mouse_delta + last_tr_id <= last_project_tr_id then -- WE NEED TO USE LAST TRACK TO CALCULATE FIRST TRACK "(last_tr_id-num) BECAUSE IT WILL BREAK THE LOOP AT FIRST FOUND TRACK (IF CONDITION IS MET THEN IT WILL STOP ON FIRST TRACK IN LOOP AND NOT GO TO LAST TRACK)
          new_as_tr = reaper.CSurf_TrackFromID(as_pos_offset, false) -- RETURN OFFSET TRACK IF SELECTION IS UNDER FIRST TRACK AND LAST TRACK (PROJECT)
       else
          new_as_tr = as_tr -- IF TRACK IS ABOVE OR BELLOW FIRST AND LAST PROJECT TRACK THEN RETURN SAME TRACK
       end
    end
-   
-   --local new_env_tr = num and GetEnvOffset_MouseOverride(new_as_tr, env_name, mov_offset, num)
+
    local under_last_tr = (as_pos_offset - last_project_tr_id > 0) and as_pos_offset - last_project_tr_id -- HOW MANY TRACKS BELOW LAST PROJECT TRACK IS THE OFFSET
    return new_as_tr, under_last_tr
 end
@@ -868,29 +909,33 @@ function generic_table_find(temp_tbl, time_off, tr_off)
       pos_offset = pos_offset + (tbl.time_start - lowest_start()) --  OFFSET AREA SELECTIONS TO MOUSE POSITION
       local as_start, as_dur = tbl.time_start, tbl.time_dur
 
-      local first_tr, last_tr = tbl.sel_info[1].track, tbl.sel_info[#tbl.sel_info].track
-      --local first_tr, last_tr = find_highest_tr()
+      --local first_tr, last_tr = tbl.sel_info[1].track, tbl.sel_info[#tbl.sel_info].track
+      local first_tr, last_tr = find_highest_tr()
       for i = 1, #tbl.sel_info do
          local sel_info = tbl.sel_info[i]
+         local track = sel_info.track
+         local new_tr, under = generic_track_offset(track, {first_tr,last_tr,tr_off}, pos_offset, #tbl.sel_info)
+         sel_info.track = temp_tbl and new_tr or sel_info.track
          if sel_info.items then
-            local item_track = sel_info.track
-            local new_tr, under = generic_track_offset(item_track, {first_tr,last_tr,tr_off}, pos_offset, #tbl.sel_info)
-            if temp_tbl then  -- DRAGGING
-               sel_info.track = new_tr
-            end
+            --local item_track = sel_info.track
+            --local new_tr, under = generic_track_offset(item_track, {first_tr,last_tr,tr_off}, pos_offset, #tbl.sel_info)
+            --if temp_tbl then  -- DRAGGING
+            --sel_info.track = temp_tbl and new_tr
+            --end
             local item_data = sel_info.items
-            DrawItemGhosts(item_data, new_tr, as_start, pos_offset, time_off, under)
-         elseif sel_info.env_points then
-            local env_track = sel_info.track
-            local new_tr, under = generic_track_offset(env_track, {first_tr,last_tr,tr_off}, pos_offset,  #tbl.sel_info)
-            --msg(new_tr)
+            DrawItemGhosts(item_data, new_tr, as_start, as_dur, pos_offset, time_off, under)
+         elseif sel_info.env_name then
+            --local env_track = item_track
+            --local new_tr, under = generic_track_offset(env_track, {first_tr,last_tr,tr_off}, pos_offset,  #tbl.sel_info)
             local env_name = sel_info.env_name
-            local new_env = GetEnvOffset_MouseOverride(new_tr, env_name, time_off, #tbl.sel_info)
-            --msg(new_env)
+            local env_num = Get_envelope_track_info(track)
+            msg(env_num)
+            local new_env = GetEnvOffset_MouseOverride2(new_tr, env_name, time_off, #tbl.sel_info)
+            env_track = temp_tbl and temp_tbl.sel_info[i].track or track              -- SINCE ENV GHOSTS ARE HARD TO WORK WITH BECAUSE THEY HAVE NO GUID I HAD TO MAKE SOMETHING UP - GHOST ID IS MADE FROM TRACK-TO-STRING AND CURRENT TIME
+            sel_info.track = temp_tbl and new_env or sel_info.track
             if temp_tbl then
-               sel_info.track = new_env
+               --sel_info.track = new_env
                as_start,as_end = temp_tbl.time_start, temp_tbl.time_end -- BECAUSE ENVELOPE HAVE NO GUID I HAVE TO MAKE SOMETHING UP WITH THEM - GHOST ID IS MADE FROM TRACK-TO-STRING AND CURRENT TIME
-               env_track = temp_tbl.sel_info[i].track                   -- SINCE ENV GHOSTS ARE HARD TO WORK WITH BECAUSE THEY HAVE NO GUID I HAD TO MAKE SOMETHING UP - GHOST ID IS MADE FROM TRACK-TO-STRING AND CURRENT TIME
             end
             DrawEnvGhosts(env_track, new_env, new_tr, as_start, as_dur, pos_offset, time_off, under)
          end
@@ -907,7 +952,7 @@ local function Composite(src_x, src_y, src_w, src_h, dest, dest_x, dest_y, dest_
    end
 end
 
-function DrawItemGhosts(item_data, offset_track, as_start, pos_offset, mov_offset, under_last_tr)
+function DrawItemGhosts(item_data, offset_track, as_start, as_end, pos_offset, mov_offset, under_last_tr)
    --local offset_track, under_last_tr = generic_track_offset(item_track, first_track, mov_offset)
    local off_h = under_last_tr and reaper.GetMediaTrackInfo_Value(offset_track, "I_WNDH") * under_last_tr or 0 -- USE THIS INSTEAD OF THB[] SINCE IT MAYBE GOT ENVELOPES WHICH ARE INCLUDED IN THIS API
    if TBH[offset_track] then -- THIS IS NEEDED FOR PASTE FUNCTION OR IT WILL CRASH
@@ -916,7 +961,7 @@ function DrawItemGhosts(item_data, offset_track, as_start, pos_offset, mov_offse
          local item = item_data[i]
          local item_guid = reaper.BR_GetMediaItemGUID( item )
          local item_ghost_id = item_guid--tostring(item) --.. as_start
-         if ghosts[item_ghost_id] then --and ghosts[item_ghost_id].id_time == as_start then
+         if ghosts[item_ghost_id] and ghosts[item_ghost_id].id_time == as_start + as_end  then --and ghosts[item_ghost_id].id_time == as_start then
             local mouse_offset = pos_offset + (mouse.p - as_start) + ghosts[item_ghost_id].i_s
             local move_offset = mov_offset and mov_offset + ghosts[item_ghost_id].i_s
             mouse_offset = move_offset or mouse_offset
@@ -957,6 +1002,7 @@ end
 local function Mouse_Data_From_Arrange()
    local zoom_lvl, Arr_start_time, Arr_pixel, x_view_start, y_view_start = Get_Set_Position_In_Arrange()
    local x, y = reaper.GetMousePosition()
+   local ax,ay = to_client(x, y)
    local p = ((x - x_view_start) / zoom_lvl) + Arr_start_time
 
    if reaper.GetToggleCommandState(1157) == 1 then

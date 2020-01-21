@@ -33,7 +33,7 @@ function Element:zone(z)
       self.time_start = new_L
       self.time_start = self.time_start >= 0 and self.time_start or 0
       self.time_start = self.time_start <= (z[3]+z[2]) and self.time_start or (z[3]+z[2])
-      self.time_dur = (z[3]+z[2]) - new_L
+      self.time_dur = (z[3]+z[2]) - new_L >= 0 and (z[3]+z[2]) - new_L or  0
       self.x, self.w = convert_time_to_pixel(self.time_start, (z[3]+z[2]))
     elseif z[1] == "R" then
       local new_R = z[3] + mouse.dp
@@ -112,7 +112,6 @@ function Element:zone(z)
     self.sel_info = GetSelectionInfo(self)
     GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2] + z[3])
   end
-  --if z[1] ~= "C" then self:draw() end
   self:draw()
 end
 
@@ -122,49 +121,48 @@ function Element:update_xywh()
   self:draw()
 end
 
-function Element:draw(x,y,h)
-  self.x = x or self.x
-  self.y = y or self.y
-  self.h = h or self.h
-  local sx, sy = reaper.JS_Window_ScreenToClient( track_window, self.x, self.y ) -- PREPARE TEST FOR OSX
-  reaper.JS_Composite(track_window, sx, sy, self.w, self.h, self.bm, 0, 0, 1, 1)
+function Element:draw()
+  local cx, cy = to_client(self.x, self.y)
+  reaper.JS_Composite(track_window, cx, self.y, self.w, self.h, self.bm, 0, 0, 1, 1)
   refresh_reaper()
 end
 
 function Element:pointIN(x, y)
-  return x >= self.x and x <= self.x + self.w and y >= self.y and y <= self.y + self.h --then -- IF MOUSE IS IN ELEMENT
+  local sx, sy = to_screen(self.x,self.y)
+  return x >= self.x and x <= self.x + self.w and y >= sy and y <= sy + self.h --then -- IF MOUSE IS IN ELEMENT
 end
 
 function Element:zoneIN(x, y)
+  local sx, sy = to_screen(self.x,self.y)
   local range2 = 14
 
   if x >= self.x and x <= self.x + range2 then
-    if y >= self.y and y <= self.y + range2 then
+    if y >= sy and y <= sy + range2 then
       return "TL"
-    elseif y <= self.y + self.h and y >= (self.y + self.h) - range2 then
+    elseif y <= sy + self.h and y >= (sy + self.h) - range2 then
       return "BL"
     end
     return {"L", self.time_start, self.time_dur}
   end
 
   if x >= (self.x + self.w - range2) and x <= self.x + self.w then
-    if y >= self.y and y <= self.y + range2 then
+    if y >= sy and y <= sy + range2 then
       return "TR"
-    elseif y <= self.y + self.h and y >= (self.y + self.h) - range2 then
+    elseif y <= sy + self.h and y >= (sy + self.h) - range2 then
       return "BR"
     end
     return {"R", self.time_start, self.time_dur}
   end
 
-  if y >= self.y and y <= self.y + range2 then
+  if y >= sy and y <= sy + range2 then
     return {"T", self.y, self.h, self.time_start + self.time_dur}
   end
-  if y <= self.y + self.h and y >= (self.y + self.h) - range2 then
+  if y <= sy + self.h and y >= (sy + self.h) - range2 then
     return {"B", self.y, self.h, self.time_start + self.time_dur}
   end
 
   if x > (self.x + range2) and x < (self.x + self.w - range2) then
-    if y > self.y + range2 and y < (self.y + self.h) - range2 then
+    if y > sy + range2 and y < (sy + self.h) - range2 then
       return {"C", self.time_start, self.time_dur, self.y, self}
     end
   end
