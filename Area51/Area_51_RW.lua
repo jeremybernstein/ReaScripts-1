@@ -5,8 +5,8 @@ require("Area_51_class")      -- AREA FUNCTIONS SCRIPT
 require("Area_51_ghosts")     -- AREA MOUSE INPUT HANDLING
 require("Area_51_keyboard")      -- AREA KEYBOARD INPUT HANDLING
 require("Area_51_mouse")      -- AREA MOUSE INPUT HANDLING
-require("Area_51_new_functions")  -- AREA CLASS SCRIPT
 require("Area_51_functions")  -- AREA CLASS SCRIPT
+require("Area_51_key_functions")  -- AREA CLASS SCRIPT
 
 local main_wnd = reaper.GetMainHwnd() -- GET MAIN WINDOW
 local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRACK VIEW
