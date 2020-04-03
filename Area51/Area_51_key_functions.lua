@@ -13,6 +13,7 @@ end
 function Copy_mode()
   local tbl = Get_area_table("Areas")
   copy = next(tbl) ~= nil and not copy
+  DRAW_GHOSTS = copy
     if not copy then
       Ghost_unlink_or_destroy(tbl, "Unlink")
       Refresh_reaper()

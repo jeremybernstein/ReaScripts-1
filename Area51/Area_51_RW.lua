@@ -600,6 +600,16 @@ function Track_from_offset(tr, offset)
    return new_tr, under
 end
 
+local prev_m_x, prev_m_y
+function Track_mouse_change()
+   if prev_m_x ~= mouse.x then
+      prev_m_x = mouse.x
+      return true
+   else
+      return false
+   end
+end
+
 local function Main()
    xpcall(
       function()
@@ -609,6 +619,11 @@ local function Main()
          mouse = MouseInfo()
          mouse.tr, mouse.r_t, mouse.r_b = Get_track_under_mouse(mouse.x, mouse.y)
          CHANGE = ARRANGE and Change() or false
+         if Track_mouse_change() then
+            if copy then
+               DRAW_GHOSTS = true
+            end
+         end
 
          WINDOW_IN_FRONT = Get_window_under_mouse()
          Track_keys()
@@ -620,7 +635,9 @@ local function Main()
                CreateAreaFromSelection()
             end
             if mouse.Ctrl_Shift() and not mouse.Ctrl_Shift_Alt() and mouse.l_click then -- REMOVE AREAS ON CLICK
+              if #Areas_TB ~= 0 then
                Remove()
+              end
             end
          end -- CREATE AS IF IN ARRANGE WINDOW AND NON AS ZONES ARE CLICKED
          Draw(Areas_TB) -- DRAWING CLASS

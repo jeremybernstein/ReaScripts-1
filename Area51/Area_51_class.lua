@@ -91,7 +91,7 @@ end
 
 function Element:draw(w,h)
     reaper.JS_Composite(track_window, self.x, self.y, self.w, self.h, self.bm, 0, 0, w, h)
-    Refresh_reaper()
+    Refresh_reaper(self.x, self.y, self.w, self.h)
 end
 
 function Element:copy()
@@ -117,13 +117,15 @@ function Element:copy()
             ghost.y, ghost.h = Get_tr_TBH(off_tr)
             ghost.y = ghost.y + off_height
             --ghost.y, ghost.h = TBH[off_tr].t + off_height, TBH[off_tr].h
-            ghost:draw(ghost.info[1], ghost.info[2]) -- STORED GHOST W AND H
-
+            if DRAW_GHOSTS then
+              ghost:draw(ghost.info[1], ghost.info[2]) -- STORED GHOST W AND H
+            end
             if mode == "OVERRIDE" and not Get_tr_TBH(new_env_tr) then reaper.JS_Composite_Unlink(track_window, ghost.bm) end -- IF IN OVERRIDE MODE REMOVE GHOSTS THAT HAVE NO TRACKS
             --if mode == "OVERRIDE" and not TBH[new_env_tr] then reaper.JS_Composite_Unlink(track_window, ghost.bm) end -- IF IN OVERRIDE MODE REMOVE GHOSTS THAT HAVE NO TRACKS
           end
         end
     end
+    DRAW_GHOSTS = false
 end
 
 function Element:ghosts(off_time, off_tr)
@@ -153,18 +155,18 @@ function Element:zoneIN(sx, sy)
 
   if x >= self.x and x <= self.x + range2 then
     if y >= self.y and y <= self.y + range2 then
-      return "TL"
+      return {"TL"}
     elseif y <= self.y + self.h and y >= (self.y + self.h) - range2 then
-      return "BL"
+      return {"BL"}
     end
     return {"L", self.time_start, self.time_dur}
   end
 
   if x >= (self.x + self.w - range2) and x <= self.x + self.w then
     if y >= self.y and y <= self.y + range2 then
-      return "TR"
+      return {"TR"}
     elseif y <= self.y + self.h and y >= (self.y + self.h) - range2 then
-      return "BR"
+      return {"BR"}
     end
     return {"R", self.time_start, self.time_dur}
   end
@@ -221,6 +223,7 @@ function Element:track()
   -- GET CLICKED AREA INFO GET ZONE
   if self:mouseClick() then
     ZONE_BUFFER = self:mouseZONE()
+    AAA = ZONE_BUFFER
     ZONE_BUFFER.guid = self.guid
   end
 
@@ -252,8 +255,13 @@ function Track(tbl)
   end
 end
 
-function Refresh_reaper()
-  reaper.JS_Window_InvalidateRect(track_window, 0, 0, 5000, 5000, false)
+function Refresh_reaper(x,y,w,h)
+  local x = x or 0
+  local y = y or 0
+  local w = w or 5000
+  local h = h or 5000
+  reaper.JS_Window_InvalidateRect(track_window, x, y, w, h, false)
+  --reaper.JS_Window_InvalidateRect(track_window, 0, 0, 5000, 5000, false)
 end
 
 function Draw(tbl)
