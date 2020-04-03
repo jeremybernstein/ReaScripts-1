@@ -4,7 +4,7 @@ local cur_path = package.cursor
 
 local Element = {}
 
-local ZONE_BUFFER
+local ZONE_BUFFER, split
 
 function Color()
 end
@@ -226,9 +226,6 @@ function Element:track()
   if self:mouseClick() then
     ZONE_BUFFER = self:mouseZONE()
     ZONE_BUFFER.guid = self.guid
-    --if ZONE_BUFFER[1] == "C" then
-    --  Area_function({self}, "Split")
-    --end
   end
 
   if copy then

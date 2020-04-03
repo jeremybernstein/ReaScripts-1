@@ -1,4 +1,4 @@
-local update
+local update, update_all
 local refresh_tracks
 
 function Delete(tr, data, t_start, t_end, t_offset, job, src_tr)

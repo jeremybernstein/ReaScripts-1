@@ -207,7 +207,7 @@ function GetTracksFromRange(y_t, y_b)
    local range_tracks = {}
    -- FIND TRACKS IN THAT RANGE
    for track, coords in pairs(TBH) do
-      if coords.t >= y_t and coords.b <= y_b then
+      if coords.t >= y_t and coords.b <= y_b and coords.h ~= 0 then
          range_tracks[#range_tracks+1] = {track = track, v = coords.t}
       end
    end
@@ -576,7 +576,7 @@ function Mouse_tr_offset()
    local m_tr_num = reaper.CSurf_TrackToID(Convert_to_track(mouse.last_tr), false)
 
    local first_area_tr = active_as and active_as.sel_info[1].track or Areas_TB[1].sel_info[1].track -- GET FIRST AREA (ACTIVE SELECTED AREA OR FIRST AREA IF MULTI AREAS)
-   local first_area_tr_num = reaper.CSurf_TrackToID(Convert_to_track(first_area_tr), false)
+   local first_area_tr_num = reaper.CSurf_TrackToID(Convert_to_track(first_area_tr), false) --
 
    local mouse_delta = m_tr_num - first_area_tr_num
    mouse_delta = m_cy > TBH[Get_last_visible_track()].b and mouse_delta + 1 or mouse_delta   -- IF MOUSE IS BELLOW LAST TRACK ADD 1 (SO ALL TRACKS ARE BELLOW LAST TRACK)
