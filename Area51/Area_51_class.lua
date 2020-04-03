@@ -49,15 +49,15 @@ function Element:update_zone(z)
       self.time_dur = new_R - self.time_start
       self.time_dur = self.time_dur >= 0 and self.time_dur or 0
     elseif z[1] == "C" then
-      if mouse.dp ~= 0 then
+      if mouse.dp ~= 0 or mouse.tr ~= mouse.last_tr then
         if not split then Area_function({z[5]}, "Move") split = true end
+      end
         local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
         self.time_start = new_L
         Track_offset(z[5].sel_info, self.sel_info)
         Env_offset(z[5].sel_info, self.sel_info)
         self.y, self.h = GetTrackTBH(self.sel_info)
         self:ghosts(self.time_start - z[2]) -- DRAW GHOSTS
-      end
     elseif z[1] == "T" then
       local rd = (mouse.last_r_t - mouse.ort)
       if (z[3] - rd) > 0 then
@@ -153,7 +153,7 @@ end
 
 function Element:zoneIN(sx, sy)
   local x, y = To_client(sx, sy)
-  local range2 = 14
+  local range2 = 8
 
   if x >= self.x and x <= self.x + range2 then
     if y >= self.y and y <= self.y + range2 then

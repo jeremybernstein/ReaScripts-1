@@ -30,12 +30,11 @@ end
 function Move(tr, data, t_start, t_end, t_offset, job, src_tr)
   if not data then return end
   split_or_delete_items(tr, data, t_start, t_end, job)
-	update_all = true
+  update_all = true
 end
 
 function Area_function(tbl,func)
   if #tbl == 0 then return end -- IF THERE IS NO TABLE OR TABLE HAS NO DATA RETURN
-  --if tbl[1].sel_info[1].items or tbl[1].sel_info[1].env_points or tbl[1].sel_info[1].AIs then
     reaper.Undo_BeginBlock()
     reaper.PreventUIRefresh(1)
     for a = 1, #tbl do
@@ -71,13 +70,16 @@ function Area_function(tbl,func)
         tbl_t.sel_info = GetSelectionInfo(tbl_t)
         update = nil
       end
+
       if update_all then
         local areas_tbl = Get_area_table("Areas")
+        Ghost_unlink_or_destroy(areas_tbl, "Delete")
         for i = 1, #areas_tbl do
           areas_tbl[i].sel_info = GetSelectionInfo(areas_tbl[i])
         end
         update_all = nil
       end
+
       if refresh_tracks then
         GetTracksXYH()
         refresh_tracks = false
@@ -88,7 +90,6 @@ function Area_function(tbl,func)
     reaper.PreventUIRefresh(-1)
     reaper.UpdateTimeline()
     reaper.UpdateArrange()
-  --end
 end
 
 function del_env(env_track, as_start, as_end, pos_offset, job)
