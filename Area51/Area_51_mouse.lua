@@ -123,7 +123,7 @@ function MouseInfo(x,y,p)
 	local m_cx, m_cy = reaper.JS_Window_ScreenToClient( track_window, mouse.x, mouse.y )
 
 	--ARRANGE = ((mouse.l_down) and (mouse.ox >= sx and Check_val_for_os(mouse.oy, sy)) and mouse.otr) and true or false
-	ARRANGE = ((mouse.l_down) and (m_cx >= 0 and m_cy >= 0) and mouse.otr) and true or false
+	ARRANGE = ((mouse.l_down) and mouse.otr) and true or false--((mouse.l_down) and (m_cx >= 0 and m_cy >= 0) and mouse.otr) and true or false
 	--ARRANGE = ((mouse.l_down) and (mouse.ox >= sx and mouse.oy >= sy) and mouse.otr) and true or false 		------ FOR OSX OY NEEDS TO BE LESS THAN SCREEN Y (mouse.oy <= sy) ----------------------------------
 
 	mouse.l_click   = false
