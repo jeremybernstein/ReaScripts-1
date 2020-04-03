@@ -4,7 +4,7 @@ function Remove()
      Copy_mode()
   end -- DISABLE COPY MODE
   Ghost_unlink_or_destroy(tbl, "Delete")
-  RemoveAsFromTable(tbl, "Delete")
+  RemoveAsFromTable(tbl, "Delete", "~=")
   BLOCK = nil
   Set_active_as(nil)
   Refresh_reaper()

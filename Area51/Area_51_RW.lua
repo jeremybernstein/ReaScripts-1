@@ -13,7 +13,7 @@ local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRAC
 local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
 local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTONDOWN", false) -- INTERCEPT MOUSE L BUTTON
 
-local Areas_TB = {}
+Areas_TB = {}
 local active_as
 copy = false
 
@@ -322,12 +322,19 @@ local function Check_change(s_start, s_end, r_start, r_end)
 end
 
 -- DELETE AREA
-function RemoveAsFromTable(tab, val)
+function RemoveAsFromTable(tab, val, job)
    for i = #tab, 1, -1 do
       local in_table = tab[i].guid
-      if in_table ~= val then -- REMOVE ANY AS THAT HAS DIFFERENT GUID
-         reaper.JS_LICE_DestroyBitmap(tab[i].bm) -- DESTROY BITMAPS FROM AS THAT WILL BE DELETED
-         table.remove(tab, i) -- REMOVE AS FROM TABLE
+      if job == "==" then
+         if in_table == val then
+            reaper.JS_LICE_DestroyBitmap(tab[i].bm) -- DESTROY BITMAPS FROM AS THAT WILL BE DELETED
+            table.remove(tab, i) -- REMOVE AS FROM TABLE
+         end
+      elseif job == "~=" then
+         if in_table ~= val then -- REMOVE ANY AS THAT HAS DIFFERENT GUID
+            reaper.JS_LICE_DestroyBitmap(tab[i].bm) -- DESTROY BITMAPS FROM AS THAT WILL BE DELETED
+            table.remove(tab, i) -- REMOVE AS FROM TABLE
+         end
       end
    end
 end
@@ -420,9 +427,9 @@ local function CreateAreaFromSelection()
             guid = mouse.Ctrl_Shift_Alt() and reaper.genGuid() or "single"
          end
 
-         if #Areas_TB > 0 and not mouse.Ctrl_Shift_Alt() then
-            RemoveAsFromTable(Areas_TB, "single")
-         end
+         --if #Areas_TB > 1 and not mouse.Ctrl_Shift_Alt() then
+         --   RemoveAsFromTable(Areas_TB, "single", "~=")
+         --end
 
          local x, w = Convert_time_to_pixel(as_left, as_right - as_left)
          local y, h = as_top, as_bot - as_top
@@ -635,7 +642,7 @@ local function Main()
             end
             if mouse.Ctrl_Shift() and not mouse.Ctrl_Shift_Alt() and mouse.l_click then -- REMOVE AREAS ON CLICK
               if #Areas_TB ~= 0 then
-               Remove()
+                  Remove()
               end
             end
          end -- CREATE AS IF IN ARRANGE WINDOW AND NON AS ZONES ARE CLICKED
@@ -648,7 +655,7 @@ end
 
 function Exit() -- DESTROY ALL BITMAPS ON REAPER EXIT
    Ghost_unlink_or_destroy(Areas_TB, "Delete")
-   RemoveAsFromTable(Areas_TB, "Delete")
+   RemoveAsFromTable(Areas_TB, "Delete", "~=")
    if reaper.ValidatePtr(track_window, "HWND") then
       Refresh_reaper()
    end

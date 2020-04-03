@@ -81,6 +81,7 @@ function Element:update_zone(z)
     end
     ZONE_BUFFER = nil
     self.sel_info = GetSelectionInfo(self)
+    if self.time_dur == 0 then RemoveAsFromTable(Areas_TB, self.guid, "==") end
   end
 end
 
@@ -266,7 +267,7 @@ function Draw(tbl)
     for i = #tbl, 1, -1 do
       tbl[i]:update_xywh()
     end -- UPDATE ALL AS ONLY ON CHANGE
-  elseif DRAWING then
+  elseif DRAWING and #tbl ~= 0 then
     tbl[#tbl]:draw(1,1) -- UPDATE ONLY AS THAT IS DRAWING (LAST CREATED)
   end
 end
