@@ -590,7 +590,7 @@ function Env_Mouse_Match_Override_offset(first_tr, tr, num, env_name)
 end
 
 -- CONVERT OFFSET TO TRACK AND CALCULATE HOW MANY TRACKS IS THE NEW TRACK UNDER LAST PROJECT TRACK
-function Track_from_offset(tr, offset)   
+function Track_from_offset(tr, offset)
    local tr_num = reaper.CSurf_TrackToID(Convert_to_track(tr), false)
    local last_vis_tr = Get_last_visible_track()
    local last_num = reaper.CSurf_TrackToID(last_vis_tr, false) 
