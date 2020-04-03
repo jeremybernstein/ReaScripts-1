@@ -49,12 +49,15 @@ function Element:update_zone(z)
       self.time_dur = new_R - self.time_start
       self.time_dur = self.time_dur >= 0 and self.time_dur or 0
     elseif z[1] == "C" then
-      local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
-      self.time_start = new_L
-      Track_offset(z[5], self.sel_info)
-      Env_offset(z[5], self.sel_info)
-      self.y, self.h = GetTrackTBH(self.sel_info)
-      self:ghosts(self.time_start - z[2]) -- DRAW GHOSTS
+      if mouse.dp ~= 0 then
+        if not split then Area_function({z[5]}, "Move") split = true end
+        local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
+        self.time_start = new_L
+        Track_offset(z[5].sel_info, self.sel_info)
+        Env_offset(z[5].sel_info, self.sel_info)
+        self.y, self.h = GetTrackTBH(self.sel_info)
+        self:ghosts(self.time_start - z[2]) -- DRAW GHOSTS
+      end
     elseif z[1] == "T" then
       local rd = (mouse.last_r_t - mouse.ort)
       if (z[3] - rd) > 0 then
@@ -72,13 +75,14 @@ function Element:update_zone(z)
     self:draw(1,1)
   elseif mouse.l_up then
     if z[1] == "C" then
-      move_items_envs(z[5], self.sel_info, {z[2], z[3]}, {self.time_start,self.time_dur}, self.time_start - z[2])
+      move_items_envs(z[5].sel_info, self.sel_info, {z[2], z[3]}, {self.time_start,self.time_dur}, self.time_start - z[2])
       Ghost_unlink_or_destroy({self}, "Unlink")
       Refresh_reaper()
       --AreaDo({self}, "move", z[2] - self.time_start)
     end
     --create_undo(z, z[1])
     ZONE_BUFFER = nil
+    split = nil
 
     if self.time_dur == 0 then 
       RemoveAsFromTable(Areas_TB, self.guid, "==")
@@ -178,7 +182,7 @@ function Element:zoneIN(sx, sy)
 
   if x > (self.x + range2) and x < (self.x + self.w - range2) then
     if y > self.y + range2 and y < (self.y + self.h) - range2 then
-      return {"C", self.time_start, self.time_dur, self.y, DeepCopy(self.sel_info)}
+      return {"C", self.time_start, self.time_dur, self.y, DeepCopy(self)} --DeepCopy(self.sel_info)
     end
   end
 end
@@ -222,6 +226,9 @@ function Element:track()
   if self:mouseClick() then
     ZONE_BUFFER = self:mouseZONE()
     ZONE_BUFFER.guid = self.guid
+    --if ZONE_BUFFER[1] == "C" then
+    --  Area_function({self}, "Split")
+    --end
   end
 
   if copy then

@@ -27,6 +27,12 @@ function Duplicate(tr, data, t_start, t_end, t_offset, job, src_tr)
   update = true
 end
 
+function Move(tr, data, t_start, t_end, t_offset, job, src_tr)
+  if not data then return end
+  split_or_delete_items(tr, data, t_start, t_end, job)
+	update_all = true
+end
+
 function Area_function(tbl,func)
   if #tbl == 0 then return end -- IF THERE IS NO TABLE OR TABLE HAS NO DATA RETURN
   --if tbl[1].sel_info[1].items or tbl[1].sel_info[1].env_points or tbl[1].sel_info[1].AIs then
@@ -65,6 +71,13 @@ function Area_function(tbl,func)
         tbl_t.sel_info = GetSelectionInfo(tbl_t)
         update = nil
       end
+      if update_all then
+        local areas_tbl = Get_area_table("Areas")
+        for i = 1, #areas_tbl do
+          areas_tbl[i].sel_info = GetSelectionInfo(areas_tbl[i])
+        end
+        update_all = nil
+      end
       if refresh_tracks then
         GetTracksXYH()
         refresh_tracks = false
@@ -98,7 +111,7 @@ function split_or_delete_items(as_tr, as_items_tbl, as_start, as_end, job)
 	if not reaper.ValidatePtr( as_items_tbl[1], "MediaItem*") then return end
 	for i = #as_items_tbl, 1, -1 do
 		local item = as_items_tbl[i]
-		if job == "Delete" or job == "Split" then
+		if job == "Delete" or job == "Split" or job == "Move" then
 		local s_item_first = reaper.SplitMediaItem(item, as_end)
 		local s_item_last = reaper.SplitMediaItem(item, as_start)
 		if job == "Delete" then
