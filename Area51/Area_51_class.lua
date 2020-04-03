@@ -3,167 +3,182 @@ local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRAC
 local cur_path = package.cursor
 
 local Element = {}
-local ZONE_BUFFER
-local TEMP_AREA
 
-function color()
+local ZONE_BUFFER
+
+function Color()
 end
 
-function Element:new(x, y, w, h, guid, time_start, time_dur, info, norm_val, norm_val2)
+function DeepCopy(original)
+  local copy = {}
+  for k, v in pairs(original) do
+    if type(v) == 'table' then
+        v = DeepCopy(v)
+    end
+    copy[k] = v
+  end
+  return copy
+end
+
+function Element:new(x, y, w, h, guid, time_start, time_dur, info)
   local elm = {}
   elm.x, elm.y, elm.w, elm.h = x, y, w, h
-  elm.guid, elm.bm = guid, reaper.JS_LICE_CreateBitmap(true, 1, 1)
+  elm.guid, elm.bm = guid, reaper.JS_LICE_CreateBitmap(true, elm.w, elm.h)
   reaper.JS_LICE_Clear(elm.bm, 0x66002244)
   elm.info, elm.time_start, elm.time_dur = info, time_start, time_dur
-  elm.norm_val = norm_val
-  elm.norm_val2 = norm_val2
   setmetatable(elm, self)
   self.__index = self
   return elm
 end
 
-function extended(Child, Parent)
+function Extended(Child, Parent)
   setmetatable(Child, {__index = Parent})
 end
 
-function Element:zone(z)
+function Element:update_zone(z)
+  if copy then return end
   if mouse.l_down then
     if z[1] == "L" then
-      local new_L = z[2] + mouse.dp
+      local new_L = (Snap_val(z[2]) + mouse.dp) <= (z[3]+z[2]) and (Snap_val(z[2]) + mouse.dp) or Snap_val(z[3]+z[2])
+      new_L = new_L >= 0 and new_L or 0
+      local new_R = (z[3]+z[2]) - new_L >= 0 and (z[3]+z[2]) - new_L or 0
       self.time_start = new_L
-      self.time_start = self.time_start >= 0 and self.time_start or 0
-      self.time_start = self.time_start <= (z[3]+z[2]) and self.time_start or (z[3]+z[2])
-      self.time_dur = (z[3]+z[2]) - new_L >= 0 and (z[3]+z[2]) - new_L or  0
-      self.x, self.w = convert_time_to_pixel(self.time_start, (z[3]+z[2]))
-    elseif z[1] == "R" then
-      local new_R = z[3] + mouse.dp
       self.time_dur = new_R
+    elseif z[1] == "R" then
+      local new_R = Snap_val(z[3]+z[2]) + mouse.dp
+      self.time_dur = new_R - self.time_start
       self.time_dur = self.time_dur >= 0 and self.time_dur or 0
-      _, self.w = convert_time_to_pixel(0, self.time_dur)
-      --AreaDo({self},"stretch")
     elseif z[1] == "C" then
-      --AAA = TEMP_AREA
-      --local temp_area = z[5]
       local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
-      --local temp_area_ghost = convert_time_to_pixel(new_L, 0) -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE
       self.time_start = new_L
-      self.time_start = self.time_start >= 0 and self.time_start or 0
-      self.x = convert_time_to_pixel(new_L, 0)
+      Track_offset(z[5], self.sel_info)
+      Env_offset(z[5], self.sel_info)
+      --off_test(z[5], self.sel_info)
       self.y, self.h = GetTrackTBH(self.sel_info)
-      --local last_project_tr = get_last_visible_track()
-      --local last_project_tr_id = reaper.CSurf_TrackToID(last_project_tr, false)
-      --local mouse_delta = reaper.CSurf_TrackToID(env_to_track(mouse.tr), false) - reaper.CSurf_TrackToID(env_to_track(mouse.last_tr), false)
-
-      -- OFFSET TRACKS BASED ON AREA POSITION (TRACKS FOLLOW AREA)
-      --msg(mouse_delta)
-      --if mouse_delta ~= 0 then
-
-       -- local skip
-        --for i = 1, #tracks do
-        --  if reaper.ValidatePtr(tracks[i].track, "TrackEnvelope*") then -- IF THERE IS ENVELOPE TRACK IN TABLE DO NOT MOVE UP/DOWN
-            --skip = true
-        --    break
-
-        
-        --  end
-        --end
-
-        --if not skip then -- IF THERE IS NO ENVELOPE TRACK SELECTED
-          -- PREVENT TRACKS TO GO BELLOW OR ABOVE FIRST/LAST PROJECT TRACK 
-          --if reaper.CSurf_TrackToID(env_to_track(tracks[1].track), false) + mouse_delta >= 1 and
-           -- reaper.CSurf_TrackToID(env_to_track(tracks[#tracks].track), false) + mouse_delta <= (last_project_tr_id) then
-        --end
-
-      --end
-
-      --msg(temp_area.sel_info[1].track)
-      --temp_area.y, temp_area.h = GetTrackTBH(temp_area.sel_info)
-      --temp_area.y, temp_area.h = GetTrackTBH(temp_area.sel_info)
-      generic_table_find(TEMP_AREA, new_L - z[2], mouse.last_tr)
-      --TEMP_AREA.y, TEMP_AREA.h = GetTrackTBH(TEMP_AREA.sel_info)
-      --self:draw() -- TEMPORARY AREA GRAPHICS SO WE DO NOT MOVE THE ORIGINAL ONE SINCE IT CHANGE THE DATA OF THE TABLE 
+      self:ghosts(self.time_start - z[2]) -- DRAW GHOSTS
     elseif z[1] == "T" then
-      local rd = (mouse.r_t - mouse.ort)
-      local new_y, new_h = z[2] + rd, z[3] - rd
-      self.y, self.h = new_y, new_h
-    elseif z[1] == "B" then
-      local rd = (mouse.r_b - mouse.orb)
-      local new_h = z[3] + rd
-      self.h = new_h
-    end
-  else
-    ZONE_BUFFER = nil
-    ZONE = nil
-    TEMP_AREA = nil
-    ARRANGE = nil
-    if z[1] == "L" or z[1] == "R" or z[1] == "T" or z[1] == "B" then
-    elseif z[1] == "C" then
-      local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
-      if mouse.Ctrl() then
-        AreaDo({self}, "DRAG-PASTE", new_L)
-      else
-        AreaDo({self}, "move", new_L)
+      local rd = (mouse.last_r_t - mouse.ort)
+      if (z[3] - rd) > 0 then
+        local new_y, new_h = z[2] + rd, z[3] - rd
+        self.y, self.h = new_y, new_h
       end
-      self.time_start = new_L
-      self.time_start = self.time_start >= 0 and self.time_start or 0
-      self.x = convert_time_to_pixel(self.time_start, 0)
-      UnlinkGhosts()
+    elseif z[1] == "B" then
+      local rd = (mouse.last_r_b - mouse.orb)
+      if (z[3] + rd) > 0 then
+        local new_h = z[3] + rd
+        self.h = new_h
+      end
     end
+    self.x, self.w = Convert_time_to_pixel(self.time_start, self.time_dur) --Convert_time_to_pixel(self.time_start, self.time_start + self.time_dur)
+    self:draw(1,1)
+  elseif mouse.l_up then
+    if z[1] == "C" then
+      move_items_envs(z[5], self.sel_info, {z[2], z[3]}, {self.time_start,self.time_dur}, self.time_start - z[2])
+      Ghost_unlink_or_destroy({self}, "Unlink")
+      Refresh_reaper()
+      --AreaDo({self}, "move", z[2] - self.time_start)
+    end
+    ZONE_BUFFER = nil
     self.sel_info = GetSelectionInfo(self)
-    GetGhosts(self.sel_info, self.time_start, self.time_start + self.time_dur, "update", z[2] + z[3])
   end
-  self:draw()
 end
 
 function Element:update_xywh()
-  self.x, self.w = convert_time_to_pixel(self.time_start, self.time_start + self.time_dur)
-  self.y, self.h = GetTrackTBH(self.sel_info) -- FIND NEW TRACKS HEIGHT AND Y IF CHANGED
-  self:draw()
+  self.x, self.w = Convert_time_to_pixel(self.time_start, self.time_dur) --Convert_time_to_pixel(self.time_start, self.time_start + self.time_dur)
+  self.y, self.h = GetTrackTBH(self.sel_info)
+  self:draw(1,1)
 end
 
-function Element:draw()
-  local cx, cy = to_client(self.x, self.y)
-  reaper.JS_Composite(track_window, cx, self.y, self.w, self.h, self.bm, 0, 0, 1, 1)
-  refresh_reaper()
+function Element:draw(w,h)
+    reaper.JS_Composite(track_window, self.x, self.y, self.w, self.h, self.bm, 0, 0, w, h)
+    Refresh_reaper()
 end
 
-function Element:pointIN(x, y)
-  local sx, sy = to_screen(self.x,self.y)
-  return x >= self.x and x <= self.x + self.w and y >= sy and y <= sy + self.h --then -- IF MOUSE IS IN ELEMENT
+function Element:copy()
+    --if not reaper.ValidatePtr(mouse.last_tr, "MediaTrack*") then return end
+    local mouse_delta = Mouse_tr_offset()
+    local area_offset = self.time_start - lowest_start() --  OFFSET AREA SELECTIONS TO MOUSE POSITION
+    local mouse_offset = (mouse.p - self.time_start) + area_offset
+    for i = 1, #self.sel_info do
+        local tr = self.sel_info[i].track
+        local new_tr, under = Track_from_offset(tr, mouse_delta) --  ALWAYS FIRST CONVERT ALL TRACK TYPES TO MEDIA TRACK (WE USE IT AS MAIN ID TO KNOW THE POSITION OF ENVELOPES), AND RETURN HOW MANY TRACK IS NEW TRACK UNDER LAST PROJECT TRACK
+        local _, new_tr_h = Get_tr_TBH(new_tr)
+
+        local off_height = under and new_tr_h * under or 0 -- GET HEIGHT OFFSET POSITION (IF MOUSE IS UNDER LAST PROJECT TRACK - USED FOR COPY MOODE)
+        --local off_height = under and TBH[new_tr].h * under or 0 -- GET HEIGHT OFFSET POSITION (IF MOUSE IS UNDER LAST PROJECT TRACK - USED FOR COPY MOODE)
+
+        local new_env_tr, mode = Env_Mouse_Match_Override_offset(self.sel_info[1].track, new_tr, i-1, self.sel_info[i].env_name)-- ENVELOPE COPY MODE OFFSET
+        local off_tr = mode and new_env_tr or new_tr -- OVERRIDE MODE IS ACTIVE ONLY ON SIGNLE ACTIVE AREAS OTHERWISE IT REVERTS TO MATCH MODE
+        if self.sel_info[i].ghosts then
+          for j = 1, #self.sel_info[i].ghosts do
+            local ghost = self.sel_info[i].ghosts[j]
+            local ghost_start = mouse_offset and (mouse_offset + ghost.time_start) or ghost.time_start
+            ghost.x, ghost.w = Convert_time_to_pixel(ghost_start, ghost.time_dur)
+            ghost.y, ghost.h = Get_tr_TBH(off_tr)
+            ghost.y = ghost.y + off_height
+            --ghost.y, ghost.h = TBH[off_tr].t + off_height, TBH[off_tr].h
+            ghost:draw(ghost.info[1], ghost.info[2]) -- STORED GHOST W AND H
+
+            if mode == "OVERRIDE" and not Get_tr_TBH(new_env_tr) then reaper.JS_Composite_Unlink(track_window, ghost.bm) end -- IF IN OVERRIDE MODE REMOVE GHOSTS THAT HAVE NO TRACKS
+            --if mode == "OVERRIDE" and not TBH[new_env_tr] then reaper.JS_Composite_Unlink(track_window, ghost.bm) end -- IF IN OVERRIDE MODE REMOVE GHOSTS THAT HAVE NO TRACKS
+          end
+        end
+    end
 end
 
-function Element:zoneIN(x, y)
-  local sx, sy = to_screen(self.x,self.y)
+function Element:ghosts(off_time, off_tr)
+  for i = 1, #self.sel_info do
+    if self.sel_info[i].ghosts then
+      for j = 1, #self.sel_info[i].ghosts do
+        local tr = off_tr and off_tr or self.sel_info[i].track
+        local ghost = self.sel_info[i].ghosts[j]
+        local ghost_start = off_time and (off_time + ghost.time_start) or ghost.time_start
+        ghost.x, ghost.w = Convert_time_to_pixel(ghost_start,  ghost.time_dur)
+        ghost.y, ghost.h = Get_tr_TBH(tr)
+        --ghost.y, ghost.h = TBH[tr].t, TBH[tr].h
+        ghost:draw(ghost.info[1], ghost.info[2]) -- STORED GHOST W AND H
+      end
+    end
+  end
+end
+
+function Element:pointIN(sx, sy)
+  local x, y = To_client(sx, sy)
+  return x >= self.x and x <= self.x + self.w and y >= self.y and y <= self.y + self.h --then -- IF MOUSE IS IN ELEMENT
+end
+
+function Element:zoneIN(sx, sy)
+  local x, y = To_client(sx, sy)
   local range2 = 14
 
   if x >= self.x and x <= self.x + range2 then
-    if y >= sy and y <= sy + range2 then
+    if y >= self.y and y <= self.y + range2 then
       return "TL"
-    elseif y <= sy + self.h and y >= (sy + self.h) - range2 then
+    elseif y <= self.y + self.h and y >= (self.y + self.h) - range2 then
       return "BL"
     end
     return {"L", self.time_start, self.time_dur}
   end
 
   if x >= (self.x + self.w - range2) and x <= self.x + self.w then
-    if y >= sy and y <= sy + range2 then
+    if y >= self.y and y <= self.y + range2 then
       return "TR"
-    elseif y <= sy + self.h and y >= (sy + self.h) - range2 then
+    elseif y <= self.y + self.h and y >= (self.y + self.h) - range2 then
       return "BR"
     end
     return {"R", self.time_start, self.time_dur}
   end
 
-  if y >= sy and y <= sy + range2 then
+  if y >= self.y and y <= self.y + range2 then
     return {"T", self.y, self.h, self.time_start + self.time_dur}
   end
-  if y <= sy + self.h and y >= (sy + self.h) - range2 then
+  if y <= self.y + self.h and y >= (self.y + self.h) - range2 then
     return {"B", self.y, self.h, self.time_start + self.time_dur}
   end
 
   if x > (self.x + range2) and x < (self.x + self.w - range2) then
-    if y > sy + range2 and y < (sy + self.h) - range2 then
-      return {"C", self.time_start, self.time_dur, self.y, self}
+    if y > self.y + range2 and y < (self.y + self.h) - range2 then
+      return {"C", self.time_start, self.time_dur, self.y, DeepCopy(self.sel_info)}
     end
   end
 end
@@ -180,8 +195,8 @@ function Element:mouseDown()
   return mouse.l_down and self:pointIN(mouse.ox, mouse.oy)
 end
 --------
-function Element:mouseUp() 
-  return mouse.l_up and self:pointIN(mouse.ox, mouse.oy)
+function Element:mouseUp()
+  return mouse.l_up --and self:pointIN(mouse.ox, mouse.oy)
 end
 --------
 function Element:mouseClick()
@@ -196,65 +211,59 @@ function Element:mouseM_Down()
   --return m_state&64==64 and self:pointIN(mouse_ox, mouse_oy)
 end
 --------
-local function deepCopy(original)
-  local copy = {}
-  for k, v in pairs(original) do
-      -- as before, but if we find a table, make sure we copy that too
-      if type(v) == 'table' then
-          v = deepCopy(v)
-      end
-      copy[k] = v
-  end
-  return copy
-end
 
 function Element:track()
-  if CREATING then
+  local active_as = Get_area_table("Active")
+  if CREATING or WINDOW_IN_FRONT then
     return
   end
-
-  if self:mouseDown() then
-    if not ZONE then
-      ZONE_BUFFER = self:mouseZONE()
-      ZONE = self:mouseZONE()[1]
-      TEMP_AREA = deepCopy(self)
-    end
+ -- if WINDOW_IN_FRONT then return end
+  -- GET CLICKED AREA INFO GET ZONE
+  if self:mouseClick() then
+    ZONE_BUFFER = self:mouseZONE()
+    ZONE_BUFFER.guid = self.guid
   end
 
-  --AAA = TEMP_AREA
+  if copy then
+    if active_as then
+      if active_as.guid == self.guid then
+        self:copy() -- draw only selected as ghost
+      end
+    else
+      self:copy() -- draw every ghost
+    end
+  end
+  -- UPDATE AREA ZONE
+  if ZONE_BUFFER and ZONE_BUFFER.guid == self.guid then
+    self:update_zone(ZONE_BUFFER)
+  end
 
-  if ZONE and self.guid == TEMP_AREA.guid then
-    self:zone(ZONE_BUFFER)
-  end -- PREVENT OTHER AREAS TRIGGERING THIS LOOP AGAIN
-
-  A_M_Block = self:mouseIN() or self:mouseDown() or ZONE and true or nil
-
+  BLOCK = (self:mouseIN() or ZONE_BUFFER) and true or nil  -- GLOBAL BLOCKING FLAG IF MOUSE IS OVER AREA (ALSO USED TO INTERCEPT LMB CLICK)
 end
-----------------------------------------------------------------------------------------------------
----   Create Element Child Classes(Button,Slider,Knob)   -------------------------------------------
-----------------------------------------------------------------------------------------------------
+
 AreaSelection = {}
-extended(AreaSelection, Element)
+Ghosts = {}
+Extended(AreaSelection, Element)
+Extended(Ghosts, Element)
 
 function Track(tbl)
   for _, area in pairs(tbl) do
     area:track()
-    if area:mouseIN() or area:mouseDown() then return end
   end
+end
+
+function Refresh_reaper()
+  reaper.JS_Window_InvalidateRect(track_window, 0, 0, 5000, 5000, false)
 end
 
 function Draw(tbl)
   Track(tbl)
   local is_view_changed = Arrange_view_info()
-  if is_view_changed and not DRAWING then
-    for i = 1, #tbl do
+  if is_view_changed and not DRAWING then--or (CHANGE and not DRAWING) then
+    for i = #tbl, 1, -1 do
       tbl[i]:update_xywh()
     end -- UPDATE ALL AS ONLY ON CHANGE
   elseif DRAWING then
-    tbl[#tbl]:draw() -- UPDATE ONLY AS THAT IS DRAWING (LAST CREATED) STILL NEEDS MINOR FIXING TO DRAW ONLY LAST AS IN LAST TABLE,RIGHT NOT IT UPDATES ONLY LAST AS TABLE (EVERY AS IN LAST TABLE)
+    tbl[#tbl]:draw(1,1) -- UPDATE ONLY AS THAT IS DRAWING (LAST CREATED)
   end
-end
-
-function refresh_reaper()
-  reaper.JS_Window_InvalidateRect(track_window, 0, 0, 5000, 5000, false)
 end

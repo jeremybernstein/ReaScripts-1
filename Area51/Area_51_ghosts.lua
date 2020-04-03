@@ -1,0 +1,193 @@
+ -- TRANSLATION OF VARIOUS VALUES TO OTHER RANGE
+ -- CURRENTLY IT IS USED TO CONVERT ENVELOPE POINTS VALUES TO PIXELS OF THE TRACK HEIGHT
+local function TranslateRange(value, oldMin, oldMax, newMin, newMax)
+	local oldRange = oldMax - oldMin;
+	local newRange = newMax - newMin;
+	local newValue = ((value - oldMin) * newRange / oldRange) + newMin;
+	return newValue
+end
+
+ -- SINCE THERE IS NO NATIVE WAY TO GET AI LANE HEIGHT IT IS CALCULATED MANUALLY
+local function env_AI_lane(val)
+	local lane
+	if val >= 52 then lane = 14
+	elseif val < 52 and val >= 48 then lane = 13
+	elseif val < 48 and val >= 44 then lane = 12
+	elseif val < 44 and val >= 40 then lane = 11
+	elseif val < 40 and val >= 36 then lane = 10
+	elseif val < 36 and val >= 32 then lane = 9
+	elseif val < 32 and val >= 28 then lane = 8
+	elseif val < 218 then lane = 7
+	end
+	return lane
+end
+
+function Get_item_ghosts(tr, items, as_start, as_end)
+	if not items then return end
+	local ghosts = {}
+	for i = 1, #items do
+		local item = items[i]
+		local item_start, item_len = get_item_time_in_area(item, as_start, as_end)
+		local x, w = Convert_time_to_pixel(item_start, item_len) --local x, w = Get_Set_Position_In_Arrange(item_start, item_len)  -- CONVERT TIME TO PIXEL (START TO X, LEN TO W)
+		local y, h = Get_tr_TBH(tr)
+		--local y, h = TBH[tr].t, TBH[tr].h
+		ghosts[#ghosts + 1] = Ghosts:new(x, y, w, h, item, item_start, item_len, {w, h} )
+		reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0)
+		reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
+		local peaks = Get_Item_Peaks(item, item_start, item_len)
+		Draw_peak(peaks, ghosts[#ghosts].bm, h)
+	end
+	return ghosts
+end
+
+function Get_env_ghosts(env_tr, env_points, as_start, as_end)
+	if not env_points then return end
+	local ghosts = {}
+	local first_point, last_point, points_lenght = env_points[1].time, env_points[#env_points].time, (env_points[#env_points].time - env_points[1].time) -- DRAW ONLY WHERE ENVELOPES ARE INSTEAD OF WHOLE SELECTED AREA
+	local x, w = Convert_time_to_pixel(first_point, points_lenght) --local x, w = Get_Set_Position_In_Arrange(first_point, points_lenght)
+	local y, h = Get_tr_TBH(env_tr)
+	--local y, h = TBH[env_tr].t, TBH[env_tr].h
+	ghosts[#ghosts + 1] = Ghosts:new(x, y, w, h, env_tr, first_point, points_lenght, {w, h}) -- {w, h} are stored ghost static w,h so they do not update
+	reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0)
+	reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
+	Draw_env(env_tr, env_points, ghosts[#ghosts].bm, x, h)
+	return ghosts
+end
+
+function Get_MIDI_notes(item, item_start, item_len)
+	local take = reaper.GetActiveTake(item)
+	local item_end = item_start + item_len
+	local t = {}
+	local ret, notecnt = reaper.MIDI_CountEvts(take)
+	for i=1, notecnt do
+		local retval, selected, muted, startppqpos, endppqpos, chan, pitch, vel = reaper.MIDI_GetNote(take, i-1)
+		local startppqpos_to_proj_time = reaper.MIDI_GetProjTimeFromPPQPos(take, startppqpos)
+
+		if startppqpos_to_proj_time < item_start then
+			startppqpos_to_proj_time = item_start
+		elseif startppqpos_to_proj_time > item_end then
+			break
+		end
+
+		local endppqpos_to_proj_time = reaper.MIDI_GetProjTimeFromPPQPos(take, endppqpos)
+		if endppqpos_to_proj_time > item_end then
+			endppqpos_to_proj_time = item_end
+		end
+
+		t[#t+1] = startppqpos_to_proj_time
+		t[#t+1] = endppqpos_to_proj_time
+		t[#t+1] = pitch
+	end
+	return t
+end
+ -- GET ITEM PEAKS
+function Get_Item_Peaks(item, item_start, item_len)
+	local take = reaper.GetActiveTake(item)
+	local _, w = Convert_time_to_pixel(item_start, item_len) --local _, w = Get_Set_Position_In_Arrange(item_start, item_len)-- CONVERT TIME TO PIXEL (START TO X, LEN TO W)
+	w = w > 0 and w or 1 -- FIX CRASHING IF WITH IS LESS THAN 1 PIXEL
+	local scaled_len = item_len/ item_len * w
+	local PCM_source = reaper.GetMediaItemTake_Source(take)
+	local n_chans = reaper.GetMediaSourceNumChannels(PCM_source)
+	local peakrate = scaled_len/item_len
+	local n_spls = math.floor(item_len * peakrate + 0.5) -- its Peak Samples
+	local want_extra_type = -1  -- 's' char
+	local buf = reaper.new_array(n_spls*n_chans*2) -- no spectral info
+	buf.clear()         -- Clear buffer
+	------------------
+	local retval = reaper.GetMediaItemTake_Peaks(take, peakrate,  item_start, n_chans, n_spls, want_extra_type, buf);
+	local spl_cnt  = (retval &0xfffff)        -- sample_count
+
+	local peaks = {}
+
+	if spl_cnt > 0 then
+		for i = 1, n_chans do
+			peaks[i] = {} -- create a table for each channel
+		end
+		local s = 0 -- table size counter
+		for pos = 1, n_spls*n_chans, n_chans do -- move bufferpos to start of next max peak
+			-- loop through channels
+			for i = 1, n_chans do
+			local p = peaks[i]
+			p[s+1] = buf[pos+i-1]                   -- max peak
+			p[s+2] = buf[pos+n_chans*n_spls+i-1]    -- min peak
+			end
+			s = s + 2
+		end
+		end
+	return peaks
+end
+
+ -- DRAW ENVELOPE "PEAKS" TO GHOSTS IMAGE
+function Draw_env(env_tr, env, bm, x, h)
+	local br_env = reaper.BR_EnvAlloc(env_tr, true)
+	local active, visible, armed, inLane, laneHeight, defaultShape, minValue, maxValue, centerValue, type, faderScaling, automationItemsOptions = reaper.BR_EnvGetProperties( br_env )
+	reaper.BR_EnvAlloc(env_tr, false)
+	local final_h = h - env_AI_lane(h)
+
+	for i = 1, #env-1 do
+		local e_x = env[i].time
+		local e_x1 = env[i+1].time
+		local e_y = env[i].value
+		local e_y1 = env[i+1].value
+
+		e_x = Convert_time_to_pixel(e_x,0,0) --e_x = Get_Set_Position_In_Arrange(e_x,0,0)
+		e_x1 = Convert_time_to_pixel(e_x1,0,0) --e_x1 = Get_Set_Position_In_Arrange(e_x1,0,0)
+		e_y = TranslateRange(e_y, minValue, maxValue, final_h, 0)
+		e_y1 = TranslateRange(e_y1, minValue, maxValue, final_h, 0)
+
+		reaper.JS_LICE_Line( bm, e_x - x, e_y, e_x1 - x, e_y1, 0xFF00FFFF,1, "COPY", true )
+		reaper.JS_LICE_FillCircle( bm, e_x - x, e_y, 2, 0xFF00FFFF,1, "COPY", true )
+	end
+end
+
+-- DRAW MIDI NOTES TO GHOST IMAGE
+function Draw_midi(notes,bm, x, y, w, h)
+	note = item.peaks
+	note_h = h/128
+	if note_h < 1 then note_h = 1 end
+	for i=1, #note, 3 do
+		startppq, endppq, pitch = note[i], note[i+1], note[i+2]
+		startppq = pos + (startppq-item.pos)/items_len * w
+		endppq = pos + (endppq-item.pos)/items_len * w
+		note_w = endppq-startppq
+		if note_w < 1 then note_w = 1 end
+		--gfx.rect(startppq, y2-(pitch/128*h)-note_h, note_w, note_h, 1)
+		--reaper.JS_LICE_Line( bm, 0.5*i, max_peak, 0.5*i, note_h, 0xFF00FFFF,1, "COPY", true )
+	end
+end
+
+-- DRAW ITEM PEAKS TO GHOST IMAGE
+function Draw_peak(peaks, bm, h)
+	local chan_count = #peaks
+		if chan_count > 0 then
+		local channel_h = h / chan_count
+		local channel_half_h = 0.5 * channel_h
+		for chan = 1, chan_count do
+			local t = peaks[chan]
+			local channel_y1 = channel_h*(chan-1)
+			local channel_y2 = channel_y1 + channel_h
+			local channel_center_y = channel_y1 + (0.5*channel_h)
+			for i = 1, #t-1 do
+				local max_peak = channel_center_y - (t[i] * channel_half_h)
+				local min_peak = channel_center_y - (t[i+1] * channel_half_h)
+
+				if max_peak < channel_center_y and max_peak < channel_y1 then
+					max_peak = channel_y1
+				else
+					if max_peak > channel_center_y and max_peak > channel_y2 then
+						max_peak = channel_y2
+					end
+				end
+
+				if min_peak < channel_center_y and min_peak < channel_y1 then
+					min_peak = channel_y1
+				else
+					if min_peak > channel_center_y and min_peak > channel_y2 then
+						min_peak = channel_y2
+					end
+				end
+				reaper.JS_LICE_Line(bm, 0.5*i, max_peak, 0.5*i, min_peak, 0xFF00FFFF,1, "COPY", true )
+			end
+		end
+	end
+end
