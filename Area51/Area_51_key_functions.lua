@@ -31,26 +31,17 @@ end
 
 function Duplicate_area()
   local tbl = Get_area_table()
-  --local tbl = active_as and {active_as} or Areas_TB
-  --if #tbl ~= 0 then
-    Area_function(tbl, "Duplicate")
-  --end
+  Area_function(tbl, "Duplicate")
 end
 
 function Del()
   local tbl = Get_area_table()
-  --local tbl = active_as and {active_as} or Areas_TB
-  --if #tbl ~= 0 then
-     Area_function(tbl, "Delete")
-  --end
+  Area_function(tbl, "Delete")
 end
 
 function As_split()
   local tbl = Get_area_table()
-  --local tbl = active_as and {active_as} or Areas_TB
-  --if #tbl ~= 0 then
-     Area_function(tbl, "Split")
-  --end
+  Area_function(tbl, "Split")
 end
 
 function Select_as(num)

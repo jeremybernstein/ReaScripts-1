@@ -30,7 +30,6 @@ function Get_item_ghosts(tr, items, as_start, as_end)
 		local item_start, item_len = get_item_time_in_area(item, as_start, as_end)
 		local x, w = Convert_time_to_pixel(item_start, item_len) --local x, w = Get_Set_Position_In_Arrange(item_start, item_len)  -- CONVERT TIME TO PIXEL (START TO X, LEN TO W)
 		local y, h = Get_tr_TBH(tr)
-		--local y, h = TBH[tr].t, TBH[tr].h
 		ghosts[#ghosts + 1] = Ghosts:new(x, y, w, h, item, item_start, item_len, {w, h} )
 		reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0)
 		reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
@@ -46,7 +45,6 @@ function Get_env_ghosts(env_tr, env_points, as_start, as_end)
 	local first_point, last_point, points_lenght = env_points[1].time, env_points[#env_points].time, (env_points[#env_points].time - env_points[1].time) -- DRAW ONLY WHERE ENVELOPES ARE INSTEAD OF WHOLE SELECTED AREA
 	local x, w = Convert_time_to_pixel(first_point, points_lenght) --local x, w = Get_Set_Position_In_Arrange(first_point, points_lenght)
 	local y, h = Get_tr_TBH(env_tr)
-	--local y, h = TBH[env_tr].t, TBH[env_tr].h
 	ghosts[#ghosts + 1] = Ghosts:new(x, y, w, h, env_tr, first_point, points_lenght, {w, h}) -- {w, h} are stored ghost static w,h so they do not update
 	reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0)
 	reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )

@@ -53,7 +53,6 @@ function Element:update_zone(z)
       self.time_start = new_L
       Track_offset(z[5], self.sel_info)
       Env_offset(z[5], self.sel_info)
-      --off_test(z[5], self.sel_info)
       self.y, self.h = GetTrackTBH(self.sel_info)
       self:ghosts(self.time_start - z[2]) -- DRAW GHOSTS
     elseif z[1] == "T" then
@@ -101,7 +100,6 @@ function Element:draw(w,h)
 end
 
 function Element:copy()
-    --if not reaper.ValidatePtr(mouse.last_tr, "MediaTrack*") then return end
     local mouse_delta = Mouse_tr_offset()
     local area_offset = self.time_start - lowest_start() --  OFFSET AREA SELECTIONS TO MOUSE POSITION
     local mouse_offset = (mouse.p - self.time_start) + area_offset
@@ -110,7 +108,6 @@ function Element:copy()
         local new_tr, under = Track_from_offset(tr, mouse_delta) --  ALWAYS FIRST CONVERT ALL TRACK TYPES TO MEDIA TRACK (WE USE IT AS MAIN ID TO KNOW THE POSITION OF ENVELOPES), AND RETURN HOW MANY TRACK IS NEW TRACK UNDER LAST PROJECT TRACK
         local _, new_tr_h = Get_tr_TBH(new_tr)
         local off_height = under and new_tr_h * under or 0 -- GET HEIGHT OFFSET POSITION (IF MOUSE IS UNDER LAST PROJECT TRACK - USED FOR COPY MOODE)
-        --local off_height = under and TBH[new_tr].h * under or 0 -- GET HEIGHT OFFSET POSITION (IF MOUSE IS UNDER LAST PROJECT TRACK - USED FOR COPY MOODE)
         local new_env_tr, mode = Env_Mouse_Match_Override_offset(self.sel_info, new_tr, i-1, self.sel_info[i].env_name)-- ENVELOPE COPY MODE OFFSET
         local off_tr = mode and new_env_tr or new_tr -- OVERRIDE MODE IS ACTIVE ONLY ON SIGNLE ACTIVE AREAS OTHERWISE IT REVERTS TO MATCH MODE
         if self.sel_info[i].ghosts then
@@ -120,12 +117,10 @@ function Element:copy()
             ghost.x, ghost.w = Convert_time_to_pixel(ghost_start, ghost.time_dur)
             ghost.y, ghost.h = Get_tr_TBH(off_tr)
             ghost.y = ghost.y + off_height
-            --ghost.y, ghost.h = TBH[off_tr].t + off_height, TBH[off_tr].h
             --if DRAW_GHOSTS then
               ghost:draw(ghost.info[1], ghost.info[2]) -- STORED GHOST W AND H
             --end
             if mode == "OVERRIDE" and not Get_tr_TBH(new_env_tr) then reaper.JS_Composite_Unlink(track_window, ghost.bm) end -- IF IN OVERRIDE MODE REMOVE GHOSTS THAT HAVE NO TRACKS
-            --if mode == "OVERRIDE" and not TBH[new_env_tr] then reaper.JS_Composite_Unlink(track_window, ghost.bm) end -- IF IN OVERRIDE MODE REMOVE GHOSTS THAT HAVE NO TRACKS
           end
         end
     end
@@ -141,7 +136,6 @@ function Element:ghosts(off_time, off_tr)
         local ghost_start = off_time and (off_time + ghost.time_start) or ghost.time_start
         ghost.x, ghost.w = Convert_time_to_pixel(ghost_start,  ghost.time_dur)
         ghost.y, ghost.h = Get_tr_TBH(tr)
-        --ghost.y, ghost.h = TBH[tr].t, TBH[tr].h
         ghost:draw(ghost.info[1], ghost.info[2]) -- STORED GHOST W AND H
       end
     end

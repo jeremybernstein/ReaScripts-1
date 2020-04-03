@@ -134,7 +134,9 @@ local function Check_undo_history()
          return
       end
       last_action = last_action:lower()
-      if last_action:find("remove tracks") then --or last_action:find("area51") then
+      if last_action:find("A51") then
+         make_undo()
+      elseif last_action:find("remove tracks") then --or last_action:find("area51") then
          ValidateRemovedTracks()
       elseif
          last_action:find("toggle track volume/pan/mute envelopes") or
@@ -560,9 +562,6 @@ function Track_offset(src_tbl, dest_tbl)
       local tr_num = reaper.CSurf_TrackToID(tr, false)
       local offset_num = tr_num + mouse_delta
       local new_tr = reaper.CSurf_TrackFromID(offset_num, false)
-
-      local last_vis_tr = Get_last_visible_track()
-      local last_num = reaper.CSurf_TrackToID(last_vis_tr, false)
       
       if (mouse_delta + first_area_tr_num) > 0 and (mouse_delta + last_area_tr_num) <= last_project_tr_id then
          dest_tbl[i].track = new_tr
