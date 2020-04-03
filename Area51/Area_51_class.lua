@@ -79,8 +79,12 @@ function Element:update_zone(z)
       --AreaDo({self}, "move", z[2] - self.time_start)
     end
     ZONE_BUFFER = nil
-    self.sel_info = GetSelectionInfo(self)
-    if self.time_dur == 0 then RemoveAsFromTable(Areas_TB, self.guid, "==") end
+
+    if self.time_dur == 0 then 
+      RemoveAsFromTable(Areas_TB, self.guid, "==")
+    else
+      self.sel_info = GetSelectionInfo(self)
+    end
   end
 end
 
