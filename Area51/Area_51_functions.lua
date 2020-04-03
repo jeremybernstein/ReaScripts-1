@@ -46,7 +46,7 @@ function Area_function(tbl,func)
 
       local new_tr, under = Track_from_offset(target_track, tr_offset)
       new_tr = under and Insert_track(under) or new_tr
-      local new_env_tr, mode = Env_Mouse_Match_Override_offset(tbl_t.sel_info[1].track, new_tr, i-1, tbl_t.sel_info[i].env_name)-- ENVELOPE COPY MODE OFFSET
+      local new_env_tr, mode = Env_Mouse_Match_Override_offset(tbl_t.sel_info, new_tr, i-1, tbl_t.sel_info[i].env_name)-- ENVELOPE COPY MODE OFFSET
       local off_tr = mode and new_env_tr or new_tr -- OVERRIDE MODE IS ACTIVE ONLY ON SIGNLE ACTIVE AREAS OTHERWISE IT REVERTS TO MATCH MODE
 
       off_tr = copy and off_tr or target_track -- OFFSET TRACK ONLY IF WE ARE IN COPY MODE

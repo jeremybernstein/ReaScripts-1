@@ -529,7 +529,6 @@ end
 function Track_offset(src_tbl, dest_tbl)
    local cur_m_tr = mouse.last_tr
    local first_m_tr = mouse.otr
-   local AAA,_
    if reaper.ValidatePtr(first_m_tr, "TrackEnvelope*") then return end
    if Validate_tracks_type(src_tbl,"TrackEnvelope") then return end -- IF ENVELOPE TRACK IS IN THE SELECTION BREAK
 
