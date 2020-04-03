@@ -562,7 +562,7 @@ function Track_offset(src_tbl, dest_tbl)
       local tr_num = reaper.CSurf_TrackToID(tr, false)
       local offset_num = tr_num + mouse_delta
       local new_tr = reaper.CSurf_TrackFromID(offset_num, false)
-      
+
       if (mouse_delta + first_area_tr_num) > 0 and (mouse_delta + last_area_tr_num) <= last_project_tr_id then
          dest_tbl[i].track = new_tr
       end
@@ -604,24 +604,29 @@ function Env_Mouse_Match_Override_offset(src_tr_tbl, tr, num, env_name)
    end
 end
 
+-- RETURN FIRST VISIBLE TRACK
+local function find_visible_tracks(cur_offset_id)
+   if cur_offset_id == 0 then
+      return 1
+   end -- TO DO FIX
+   for i = cur_offset_id, reaper.CountTracks(0) do
+      local track = reaper.GetTrack(0, i - 1)
+      if reaper.IsTrackVisible(track, false) then
+         return i
+      else
+      end
+   end
+end
+
 -- CONVERT OFFSET TO TRACK AND CALCULATE HOW MANY TRACKS IS THE NEW TRACK UNDER LAST PROJECT TRACK
 function Track_from_offset(tr, offset)
    local tr_num = reaper.CSurf_TrackToID(Convert_to_track(tr), false)
    local last_vis_tr = Get_last_visible_track()
    local last_num = reaper.CSurf_TrackToID(last_vis_tr, false) 
    local under = tr_num + offset > last_num and (tr_num + offset) - last_num or nil
-   local new_tr = under and last_vis_tr or reaper.CSurf_TrackFromID(tr_num + offset, false)
+   local offset_tr = find_visible_tracks(tr_num + offset) or tr_num + offset -- FIND FIRST AVAILABLE VISIBLE TRACK IF HIDDEN
+   local new_tr = under and last_vis_tr or reaper.CSurf_TrackFromID(offset_tr, false) --local new_tr = under and last_vis_tr or reaper.CSurf_TrackFromID(tr_num + offset, false)
    return new_tr, under
-end
-
-local prev_m_x, prev_m_y
-function Track_mouse_change()
-   if prev_m_x ~= mouse.x then
-      prev_m_x = mouse.x
-      return true
-   else
-      return false
-   end
 end
 
 local function Main()
@@ -632,12 +637,7 @@ local function Main()
 
          mouse = MouseInfo()
          mouse.tr, mouse.r_t, mouse.r_b = Get_track_under_mouse(mouse.x, mouse.y)
-         CHANGE = ARRANGE and Change() or false
-         if Track_mouse_change() then
-            if copy then
-               DRAW_GHOSTS = true
-            end
-         end
+         CHANGE = ARRANGE and Change() or false         
 
          WINDOW_IN_FRONT = Get_window_under_mouse()
          Track_keys()
