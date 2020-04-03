@@ -14,8 +14,8 @@ local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
 local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTONDOWN", false) -- INTERCEPT MOUSE L BUTTON
 
 local Areas_TB = {}
-copy = false
 local active_as
+copy = false
 
 local crash = function(errObject)
    local byLine = "([^\r\n]*)\r?\n?"
@@ -49,7 +49,6 @@ local crash = function(errObject)
                            "Reaper:       \t" .. reaper.GetAppVersion() .. "\n" .. "Platform:     \t" .. reaper.GetOS()
       )
    end
-  -- Exit()
 end
 
 function Msg(m)
@@ -522,9 +521,7 @@ end
 function Track_offset(src_tbl, dest_tbl)
    local cur_m_tr = mouse.last_tr
    local first_m_tr = mouse.otr
-   --local under = 0
-   --local new_tr
-
+   local AAA,_
    if reaper.ValidatePtr(first_m_tr, "TrackEnvelope*") then return end
    if Validate_tracks_type(src_tbl,"TrackEnvelope") then return end
 
@@ -544,16 +541,17 @@ function Track_offset(src_tbl, dest_tbl)
 
    for i = #src_tbl, 1, -1 do
       local tr = src_tbl[i].track
-      --new_tr, under = Track_from_offset(tr, mouse_delta)
       local tr_num = reaper.CSurf_TrackToID(tr, false)
       local offset_num = tr_num + mouse_delta
       local new_tr = reaper.CSurf_TrackFromID(offset_num, false)
 
+      local last_vis_tr = Get_last_visible_track()
+      local last_num = reaper.CSurf_TrackToID(last_vis_tr, false)
+      
       if (mouse_delta + first_area_tr_num) > 0 and (mouse_delta + last_area_tr_num) <= last_project_tr_id then
          dest_tbl[i].track = new_tr
       end
    end
-   return under
 end
 
 -- CALCULATE MOUSE DELTA FOR MEDIA TRACKS OR ENVELOPE PARENTS
@@ -567,6 +565,7 @@ function Mouse_tr_offset()
 
    local mouse_delta = m_tr_num - first_area_tr_num
    mouse_delta = m_cy > TBH[Get_last_visible_track()].b and mouse_delta + 1 or mouse_delta   -- IF MOUSE IS BELLOW LAST TRACK ADD 1 (SO ALL TRACKS ARE BELLOW LAST TRACK)
+
    return mouse_delta
 end
 
@@ -591,10 +590,10 @@ function Env_Mouse_Match_Override_offset(first_tr, tr, num, env_name)
 end
 
 -- CONVERT OFFSET TO TRACK AND CALCULATE HOW MANY TRACKS IS THE NEW TRACK UNDER LAST PROJECT TRACK
-function Track_from_offset(tr, offset)
+function Track_from_offset(tr, offset)   
    local tr_num = reaper.CSurf_TrackToID(Convert_to_track(tr), false)
    local last_vis_tr = Get_last_visible_track()
-   local last_num = reaper.CSurf_TrackToID(last_vis_tr, false)
+   local last_num = reaper.CSurf_TrackToID(last_vis_tr, false) 
    local under = tr_num + offset > last_num and (tr_num + offset) - last_num or nil
    local new_tr = under and last_vis_tr or reaper.CSurf_TrackFromID(tr_num + offset, false)
    return new_tr, under

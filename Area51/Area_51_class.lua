@@ -37,6 +37,7 @@ end
 
 function Element:update_zone(z)
   if copy then return end
+  --local under
   if mouse.l_down then
     if z[1] == "L" then
       local new_L = (Snap_val(z[2]) + mouse.dp) <= (z[3]+z[2]) and (Snap_val(z[2]) + mouse.dp) or Snap_val(z[3]+z[2])
@@ -91,7 +92,7 @@ end
 
 function Element:draw(w,h)
     reaper.JS_Composite(track_window, self.x, self.y, self.w, self.h, self.bm, 0, 0, w, h)
-    Refresh_reaper(self.x, self.y, self.w, self.h)
+    Refresh_reaper()
 end
 
 function Element:copy()
@@ -223,7 +224,6 @@ function Element:track()
   -- GET CLICKED AREA INFO GET ZONE
   if self:mouseClick() then
     ZONE_BUFFER = self:mouseZONE()
-    AAA = ZONE_BUFFER
     ZONE_BUFFER.guid = self.guid
   end
 
@@ -255,13 +255,8 @@ function Track(tbl)
   end
 end
 
-function Refresh_reaper(x,y,w,h)
-  local x = x or 0
-  local y = y or 0
-  local w = w or 5000
-  local h = h or 5000
-  reaper.JS_Window_InvalidateRect(track_window, x, y, w, h, false)
-  --reaper.JS_Window_InvalidateRect(track_window, 0, 0, 5000, 5000, false)
+function Refresh_reaper()
+  reaper.JS_Window_InvalidateRect(track_window, 0, 0, 5000, 5000, false)
 end
 
 function Draw(tbl)
