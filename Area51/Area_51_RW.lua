@@ -610,10 +610,10 @@ local function Main()
          mouse.tr, mouse.r_t, mouse.r_b = Get_track_under_mouse(mouse.x, mouse.y)
          CHANGE = ARRANGE and Change() or false
 
-         --WINDOW_IN_FRONT = Get_window_under_mouse()
-         --Track_keys()
-         --Intercept_reaper_key(Areas_TB) -- WATCH TO INTERCEPT KEYS WHEN AREA IS DRAWN (ON SCREEN)
-         --Pass_thru()
+         WINDOW_IN_FRONT = Get_window_under_mouse()
+         Track_keys()
+         Intercept_reaper_key(Areas_TB) -- WATCH TO INTERCEPT KEYS WHEN AREA IS DRAWN (ON SCREEN)
+         Pass_thru()
 
          if not BLOCK then
             if mouse.Ctrl_Shift() or CREATING then --and mouse.Shift() then
