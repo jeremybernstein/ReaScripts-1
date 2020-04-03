@@ -438,7 +438,7 @@ local function CreateAreaFromSelection()
    if mouse.l_down then
       if DRAWING then
          CREATING = true
-         if guid == nil then
+         if not guid then
             guid = reaper.genGuid()--mouse.Ctrl_Shift_Alt() and reaper.genGuid() or "single"
          end
 

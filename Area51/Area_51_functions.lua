@@ -29,7 +29,7 @@ end
 
 function Area_function(tbl,func)
   if #tbl == 0 then return end -- IF THERE IS NO TABLE OR TABLE HAS NO DATA RETURN
-  if tbl[1].sel_info[1].items or tbl[1].sel_info[1].env_points or tbl[1].sel_info[1].AIs then
+  --if tbl[1].sel_info[1].items or tbl[1].sel_info[1].env_points or tbl[1].sel_info[1].AIs then
     reaper.Undo_BeginBlock()
     reaper.PreventUIRefresh(1)
     for a = 1, #tbl do
@@ -71,11 +71,11 @@ function Area_function(tbl,func)
       end
 
     end
-    reaper.Undo_EndBlock("AREA51 " .. func, 4)
+    reaper.Undo_EndBlock("A51 " .. func, 4)
     reaper.PreventUIRefresh(-1)
     reaper.UpdateTimeline()
     reaper.UpdateArrange()
-  end
+  --end
 end
 
 function del_env(env_track, as_start, as_end, pos_offset, job)
