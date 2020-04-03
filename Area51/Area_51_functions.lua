@@ -28,52 +28,54 @@ function Duplicate(tr, data, t_start, t_end, t_offset, job, src_tr)
 end
 
 function Area_function(tbl,func)
-  if #tbl == 0 then return end
-	reaper.Undo_BeginBlock()
-  reaper.PreventUIRefresh(1)
-	for a = 1, #tbl do
-		local tbl_t = tbl[a]
-		local pos_offset = 0
+  if #tbl == 0 then return end -- IF THERE IS NO TABLE OR TABLE HAS NO DATA RETURN
+  if tbl[1].sel_info[1].items or tbl[1].sel_info[1].env_points or tbl[1].sel_info[1].AIs then
+    reaper.Undo_BeginBlock()
+    reaper.PreventUIRefresh(1)
+    for a = 1, #tbl do
+      local tbl_t = tbl[a]
+      local pos_offset = 0
 
-		pos_offset = pos_offset + (tbl_t.time_start - lowest_start()) --  OFFSET AREA SELECTIONS TO MOUSE POSITION
-    local tr_offset = copy and Mouse_tr_offset() or 0
+      pos_offset = pos_offset + (tbl_t.time_start - lowest_start()) --  OFFSET AREA SELECTIONS TO MOUSE POSITION
+      local tr_offset = copy and Mouse_tr_offset() or 0
 
-		local as_start, as_end = tbl_t.time_start, tbl_t.time_start + tbl_t.time_dur
+      local as_start, as_end = tbl_t.time_start, tbl_t.time_start + tbl_t.time_dur
 
-		for i = 1, #tbl_t.sel_info do	-- LOOP THRU AREA DATA
-			local sel_info_t = tbl_t.sel_info[i]
-			local target_track = sel_info_t.track -- AREA TRACK
+      for i = 1, #tbl_t.sel_info do	-- LOOP THRU AREA DATA
+        local sel_info_t = tbl_t.sel_info[i]
+        local target_track = sel_info_t.track -- AREA TRACK
 
-      local new_tr, under = Track_from_offset(target_track, tr_offset)
-      new_tr = under and Insert_track(under) or new_tr
-      local new_env_tr, mode = Env_Mouse_Match_Override_offset(tbl_t.sel_info, new_tr, i-1, tbl_t.sel_info[i].env_name)-- ENVELOPE COPY MODE OFFSET
-      local off_tr = mode and new_env_tr or new_tr -- OVERRIDE MODE IS ACTIVE ONLY ON SIGNLE ACTIVE AREAS OTHERWISE IT REVERTS TO MATCH MODE
+        local new_tr, under = Track_from_offset(target_track, tr_offset)
+        new_tr = under and Insert_track(under) or new_tr
+        local new_env_tr, mode = Env_Mouse_Match_Override_offset(tbl_t.sel_info, new_tr, i-1, tbl_t.sel_info[i].env_name)-- ENVELOPE COPY MODE OFFSET
+        local off_tr = mode and new_env_tr or new_tr -- OVERRIDE MODE IS ACTIVE ONLY ON SIGNLE ACTIVE AREAS OTHERWISE IT REVERTS TO MATCH MODE
 
-      off_tr = copy and off_tr or target_track -- OFFSET TRACK ONLY IF WE ARE IN COPY MODE
+        off_tr = copy and off_tr or target_track -- OFFSET TRACK ONLY IF WE ARE IN COPY MODE
 
-      if sel_info_t.items then	-- ITEMS
-				-- function name ( track, data table, time_start, time_end, time_offset, function name (as job))
-				_G[func](off_tr, sel_info_t.items, as_start, as_end, pos_offset + mouse.p, func, target_track)
-			elseif sel_info_t.env_name then -- ENVELOPES
-        _G[func](off_tr, sel_info_t.env_points, as_start, as_end, pos_offset + mouse.p, func, target_track)
-			end
-		end
+        if sel_info_t.items then	-- ITEMS
+          -- function name ( track, data table, time_start, time_end, time_offset, function name (as job))
+          _G[func](off_tr, sel_info_t.items, as_start, as_end, pos_offset + mouse.p, func, target_track)
+        elseif sel_info_t.env_name then -- ENVELOPES
+          _G[func](off_tr, sel_info_t.env_points, as_start, as_end, pos_offset + mouse.p, func, target_track)
+        end
+      end
 
-    if update then
-      tbl_t.time_start = (func == "Duplicate") and tbl_t.time_start + tbl_t.time_dur or tbl_t.time_start
-      tbl_t.sel_info = GetSelectionInfo(tbl_t)
-			update = nil
+      if update then
+        tbl_t.time_start = (func == "Duplicate") and tbl_t.time_start + tbl_t.time_dur or tbl_t.time_start
+        tbl_t.sel_info = GetSelectionInfo(tbl_t)
+        update = nil
+      end
+      if refresh_tracks then
+        GetTracksXYH()
+        refresh_tracks = false
+      end
+
     end
-    if refresh_tracks then
-      GetTracksXYH()
-      refresh_tracks = false
-    end
-
-	end
-  reaper.Undo_EndBlock("AREA51 " .. func, 4)
-  reaper.PreventUIRefresh(-1)
-  reaper.UpdateTimeline()
-  reaper.UpdateArrange()
+    reaper.Undo_EndBlock("AREA51 " .. func, 4)
+    reaper.PreventUIRefresh(-1)
+    reaper.UpdateTimeline()
+    reaper.UpdateArrange()
+  end
 end
 
 function del_env(env_track, as_start, as_end, pos_offset, job)

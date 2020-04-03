@@ -17,6 +17,8 @@ Areas_TB = {}
 --local active_as
 copy = false
 
+UNDO_BUFFER = {}
+
 local crash = function(errObject)
    local byLine = "([^\r\n]*)\r?\n?"
    local trimPath = "[\\/]([^\\/]-:%d+:.+)$"
@@ -111,6 +113,17 @@ end
 
 function Snap_val(val)
    return reaper.GetToggleCommandState(1157) == 1 and reaper.SnapToGrid(0, val) or val
+end
+
+function create_undo(tbl)
+   UNDO_BUFFER[#UNDO_BUFFER+1] = tbl
+end
+
+function make_undo()
+   if #UNDO_BUFFER ~= 0 then
+      ALast_undo = UNDO_BUFFER[#UNDO_BUFFER]
+      AArea = Has_val(Areas_TB, nil, ALast_undo.guid)
+   end
 end
 
 local function Check_undo_history()
@@ -424,12 +437,8 @@ local function CreateAreaFromSelection()
       if DRAWING then
          CREATING = true
          if guid == nil then
-            guid = mouse.Ctrl_Shift_Alt() and reaper.genGuid() or "single"
+            guid = reaper.genGuid()--mouse.Ctrl_Shift_Alt() and reaper.genGuid() or "single"
          end
-
-         --if #Areas_TB > 1 and not mouse.Ctrl_Shift_Alt() then
-         --   RemoveAsFromTable(Areas_TB, "single", "~=")
-         --end
 
          local x, w = Convert_time_to_pixel(as_left, as_right - as_left)
          local y, h = as_top, as_bot - as_top

@@ -78,6 +78,7 @@ function Element:update_zone(z)
       Refresh_reaper()
       --AreaDo({self}, "move", z[2] - self.time_start)
     end
+    --create_undo(z, z[1])
     ZONE_BUFFER = nil
 
     if self.time_dur == 0 then 
