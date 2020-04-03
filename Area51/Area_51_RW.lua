@@ -14,7 +14,7 @@ local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
 local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTONDOWN", false) -- INTERCEPT MOUSE L BUTTON
 
 Areas_TB = {}
-local active_as
+--local active_as
 copy = false
 
 local crash = function(errObject)
@@ -491,6 +491,7 @@ function Validate_tracks_type(tbl,tr_type)
    for i = 1, #tbl do
       if reaper.ValidatePtr(tbl[i].track, tr_type .. "*") then return true end
    end
+   return false
 end
 
 -- ENVELOPE OFFSET FOR MOVE ZONE
@@ -499,7 +500,7 @@ function Env_offset(src_tbl, dest_tbl)
    local first_m_tr = mouse.otr
 
    if reaper.ValidatePtr(first_m_tr, "MediaTrack*") then return end
-   if Validate_tracks_type(src_tbl,"MediaTrack") then return end
+   if Validate_tracks_type(src_tbl,"MediaTrack") then return end -- IF MEDIA TRACK IS IN THE SELECTION BREAK
 
    local f_env_par_tr = reaper.Envelope_GetParentTrack(first_m_tr)
 
@@ -530,7 +531,7 @@ function Track_offset(src_tbl, dest_tbl)
    local first_m_tr = mouse.otr
    local AAA,_
    if reaper.ValidatePtr(first_m_tr, "TrackEnvelope*") then return end
-   if Validate_tracks_type(src_tbl,"TrackEnvelope") then return end
+   if Validate_tracks_type(src_tbl,"TrackEnvelope") then return end -- IF ENVELOPE TRACK IS IN THE SELECTION BREAK
 
    local cur_m_tr_num = reaper.CSurf_TrackToID(Convert_to_track(cur_m_tr), false)
    local first_m_tr_num = reaper.CSurf_TrackToID(Convert_to_track(first_m_tr), false)
@@ -577,9 +578,9 @@ function Mouse_tr_offset()
 end
 
 -- ENVELOPE TRACK OFFSET MATCH AND OVERRIDE MODE (COPY MODE)
-function Env_Mouse_Match_Override_offset(first_tr, tr, num, env_name)
+function Env_Mouse_Match_Override_offset(src_tr_tbl, tr, num, env_name)
    local m_env = reaper.ValidatePtr(mouse.last_tr, "TrackEnvelope*") and mouse.last_tr or nil
-   if m_env and (#Areas_TB == 1 or active_as) and reaper.ValidatePtr(first_tr, "TrackEnvelope*") then -- OVERRIDE MODE ONLY IF THERE IS ONE AREA ACTIVE (CREATED OR SELECTED) AND NO MEDIA TRACK IS SELECTED
+   if m_env and (#Areas_TB == 1 or active_as) and not Validate_tracks_type(src_tr_tbl,"MediaTrack") then --not reaper.ValidatePtr(first_tr, "MediaTrack*") then -- OVERRIDE MODE ONLY IF THERE IS ONE AREA ACTIVE (CREATED OR SELECTED) AND NO MEDIA TRACK IS SELECTED
       local m_num = GetEnvNum(m_env)
       local mouse_delta = m_num + num
       local new_env_tr = reaper.GetTrackEnvelope(tr, mouse_delta)

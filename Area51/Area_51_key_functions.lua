@@ -13,10 +13,11 @@ end
 function Copy_mode()
   local tbl = Get_area_table("Areas")
   copy = next(tbl) ~= nil and not copy
-  DRAW_GHOSTS = copy
     if not copy then
       Ghost_unlink_or_destroy(tbl, "Unlink")
       Refresh_reaper()
+   -- else
+   --   DRAW_GHOSTS = copy
     end
 end
 
@@ -55,9 +56,9 @@ end
 function Select_as(num)
   local tbl = Get_area_table("Areas")
   local active_as = tbl[num] and tbl[num] or nil
-  Set_active_as(active_as)
-  DRAW_GHOSTS = true
   Ghost_unlink_or_destroy(tbl, "Unlink")
+  Set_active_as(active_as)
+  --DRAW_GHOSTS = true
   Refresh_reaper()
 end
 
