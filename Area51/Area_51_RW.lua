@@ -199,7 +199,7 @@ function Get_area_table(name)
    if name == "Areas" then return Areas_TB end
    if name == "Active" then return active_as end
    local tbl = active_as and {active_as} or Areas_TB
-   return tbl
+   return #tbl ~= 0 and tbl
 end
 
 -- FINDS TRACKS THAT ARE IN AREA OR MOUSE SWIPED RANGE
@@ -356,6 +356,7 @@ end
 
 -- DELETE OR UNLINK GHOSTS
 function Ghost_unlink_or_destroy(tbl, job)
+   if not tbl then return end
    for a = 1, #tbl do
       for i = 1, #tbl[a].sel_info do
          if tbl[a].sel_info[i].ghosts then
@@ -370,6 +371,7 @@ function Ghost_unlink_or_destroy(tbl, job)
          end
       end
    end
+   Refresh_reaper()
 end
 
 -- CREATE TABLE WITH ALL AREA INFORMATION NEEDED

@@ -4,7 +4,8 @@ local cur_path = package.cursor
 
 local Element = {}
 
-local ZONE_BUFFER, split
+local ZONE_BUFFER
+local split
 
 function Color()
 end
@@ -49,9 +50,9 @@ function Element:update_zone(z)
       self.time_dur = new_R - self.time_start
       self.time_dur = self.time_dur >= 0 and self.time_dur or 0
     elseif z[1] == "C" then
-      if mouse.dp ~= 0 or mouse.tr ~= mouse.last_tr then
-        if not split then Area_function({z[5]}, "Move") split = true end
-      end
+        if (mouse.dp ~= 0 or mouse.tr ~= mouse.last_tr) and not drag_copy then
+          if not split then Area_function({z[5]}, "Move") split = true end
+        end
         local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
         self.time_start = new_L
         Track_offset(z[5].sel_info, self.sel_info)
@@ -71,20 +72,22 @@ function Element:update_zone(z)
         self.h = new_h
       end
     end
-    self.x, self.w = Convert_time_to_pixel(self.time_start, self.time_dur) --Convert_time_to_pixel(self.time_start, self.time_start + self.time_dur)
+    self.x, self.w = Convert_time_to_pixel(self.time_start, self.time_dur)
     self:draw(1,1)
   elseif mouse.l_up then
     if z[1] == "C" then
-      move_items_envs(z[5].sel_info, self.sel_info, {z[2], z[3]}, {self.time_start,self.time_dur}, self.time_start - z[2])
-      Ghost_unlink_or_destroy({self}, "Unlink")
-      Refresh_reaper()
-      --AreaDo({self}, "move", z[2] - self.time_start)
+      if not drag_copy then
+        move_items_envs(z[5].sel_info, self.sel_info, {z[2], z[3]}, {self.time_start,self.time_dur}, self.time_start - z[2])
+      else
+        Area_function({self}, "Drag_Paste")
+      end
+        Ghost_unlink_or_destroy({self}, "Unlink")
     end
     --create_undo(z, z[1])
     ZONE_BUFFER = nil
-    split = nil
+    split, drag_copy = nil, nil
 
-    if self.time_dur == 0 then 
+    if self.time_dur == 0 then
       RemoveAsFromTable(Areas_TB, self.guid, "==")
     else
       self.sel_info = GetSelectionInfo(self)
@@ -226,6 +229,7 @@ function Element:track()
   if self:mouseClick() then
     ZONE_BUFFER = self:mouseZONE()
     ZONE_BUFFER.guid = self.guid
+    if mouse.Ctrl() then drag_copy = true end
   end
 
   if copy then
