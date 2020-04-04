@@ -166,8 +166,8 @@ function Draw_midi(peaks,bm, pos, len, w, h)
 	if note_h < 1 then note_h = 1 end
 	for i=1, #peaks, 3 do
 		local startppq, endppq, pitch = peaks[i], peaks[i+1], peaks[i+2]
-		startppq = Round(pos + (startppq - pos) / len * w)
-		endppq = Round(pos + (endppq - pos) / len * w)
+		startppq = Round((startppq - pos) / len * w)
+		endppq = Round((endppq - pos) / len * w)
 		local note_w = Round(endppq - startppq)
 		if note_w < 1 then note_w = 1 end
 		local y = (min == max) and h/2 or TranslateRange(pitch, max, min, 10, h-20)
