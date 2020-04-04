@@ -51,7 +51,9 @@ local crash = function(errObject)
                            "Reaper:       \t" .. reaper.GetAppVersion() .. "\n" .. "Platform:     \t" .. reaper.GetOS()
       )
    end
-   --Exit()
+   Release_reaper_keys()
+   reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
+  -- Exit()
 end
 
 function Msg(m)

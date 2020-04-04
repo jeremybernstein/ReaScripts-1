@@ -174,12 +174,12 @@ function create_item(tr, data, as_start, as_dur, time_offset, job)
     local filename, clonedsource
     local take = reaper.GetMediaItemTake(item, 0)
     local source = reaper.GetMediaItemTake_Source(take)
-    local m_type = reaper.GetMediaSourceType(source, "")
+    local is_midi = reaper.TakeIsMIDI(take)
     local item_volume = reaper.GetMediaItemInfo_Value(item, "D_VOL")
     local new_Item = reaper.AddMediaItemToTrack(tr)
     local new_Take = reaper.AddTakeToMediaItem(new_Item)
 
-    if m_type:find("MIDI") then -- MIDI COPIES GET INTO SAME POOL IF JUST SETTING CHUNK SO WE NEED TO SET NEW POOL ID TO NEW COPY
+    if is_midi then -- MIDI COPIES GET INTO SAME POOL IF JUST SETTING CHUNK SO WE NEED TO SET NEW POOL ID TO NEW COPY
       local _, chunk = reaper.GetItemStateChunk(item, "")
       local pool_guid = string.match(chunk, "POOLEDEVTS {(%S+)}"):gsub("%-", "%%-")
       local new_pool_guid = reaper.genGuid():sub(2, -2) -- MIDI ITEM
@@ -196,7 +196,7 @@ function create_item(tr, data, as_start, as_dur, time_offset, job)
     local newTakeOffset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
     reaper.SetMediaItemTakeInfo_Value(new_Take, "D_STARTOFFS", newTakeOffset + offset)
 
-    if m_type:find("MIDI") == nil then
+    if not is_midi then
       reaper.SetMediaItemTake_Source(new_Take, clonedsource)
     end
 

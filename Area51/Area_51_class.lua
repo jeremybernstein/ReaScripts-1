@@ -124,9 +124,7 @@ function Element:copy()
             ghost.x, ghost.w = Convert_time_to_pixel(ghost_start, ghost.time_dur)
             ghost.y, ghost.h = Get_tr_TBH(off_tr)
             ghost.y = ghost.y + off_height
-            --if DRAW_GHOSTS then
-              ghost:draw(ghost.info[1], ghost.info[2]) -- STORED GHOST W AND H
-            --end
+            ghost:draw(ghost.info[1], ghost.info[2]) -- STORED GHOST W AND H
             if mode == "OVERRIDE" and not Get_tr_TBH(new_env_tr) then reaper.JS_Composite_Unlink(track_window, ghost.bm) end -- IF IN OVERRIDE MODE REMOVE GHOSTS THAT HAVE NO TRACKS
           end
         end

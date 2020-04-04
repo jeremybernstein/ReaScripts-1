@@ -41,8 +41,6 @@ function Get_item_ghosts(tr, items, as_start, as_end)
 		reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0)
 		reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
 		local peaks = (not reaper.TakeIsMIDI(take)) and Get_Item_Peaks(item, item_start, item_len) or Get_MIDI_notes(item, item_start, item_len)
-		--MIDI_NOTES = Get_MIDI_notes(item, item_start, item_len)
-		--Draw_midi(MIDI_NOTES, ghosts[#ghosts].bm, item_start, item_len, w, h)
 		if reaper.TakeIsMIDI(take) then
 			Draw_midi(peaks, ghosts[#ghosts].bm, item_start, item_len, w, h)
 		else
@@ -73,18 +71,15 @@ function Get_MIDI_notes(item, item_start, item_len)
 	for i=1, notecnt do
 		local retval, selected, muted, startppqpos, endppqpos, chan, pitch, vel = reaper.MIDI_GetNote(take, i-1)
 		local startppqpos_to_proj_time = reaper.MIDI_GetProjTimeFromPPQPos(take, startppqpos)
-
 		if startppqpos_to_proj_time < item_start then
 			startppqpos_to_proj_time = item_start
 		elseif startppqpos_to_proj_time > item_end then
 			break
 		end
-
 		local endppqpos_to_proj_time = reaper.MIDI_GetProjTimeFromPPQPos(take, endppqpos)
 		if endppqpos_to_proj_time > item_end then
 			endppqpos_to_proj_time = item_end
 		end
-
 		t[#t+1] = startppqpos_to_proj_time
 		t[#t+1] = endppqpos_to_proj_time
 		t[#t+1] = pitch
@@ -105,7 +100,6 @@ function Get_Item_Peaks(item, item_start, item_len)
 	local want_extra_type = -1  -- 's' char
 	local buf = reaper.new_array(n_spls*n_chans*2) -- no spectral info
 	buf.clear()         -- Clear buffer
-	------------------
 	local retval = reaper.GetMediaItemTake_Peaks(take, peakrate,  item_start, n_chans, n_spls, want_extra_type, buf);
 	local spl_cnt  = (retval &0xfffff)        -- sample_count
 
@@ -167,17 +161,16 @@ function Min_max(tbl)
 
 -- DRAW MIDI NOTES TO GHOST IMAGE
 function Draw_midi(peaks,bm, pos, len, w, h)
-	local notes_num = Round(#peaks/3)
 	local note_h = Round((h/128)+5)
 	local min,max = Min_max(peaks) -- MINIMAL AND MAXIMUIM PITCH IN PEAKS 
 	if note_h < 1 then note_h = 1 end
 	for i=1, #peaks, 3 do
 		local startppq, endppq, pitch = peaks[i], peaks[i+1], peaks[i+2]
-		startppq = Round(pos + (startppq-pos)/len * w)
-		endppq = Round(pos + (endppq-pos)/len * w)
-		local note_w = Round(endppq-startppq)
+		startppq = Round(pos + (startppq - pos) / len * w)
+		endppq = Round(pos + (endppq - pos) / len * w)
+		local note_w = Round(endppq - startppq)
 		if note_w < 1 then note_w = 1 end
-		local y = TranslateRange(pitch, max, min, 10, h-20)
+		local y = max and h/2 or TranslateRange(pitch, max, min, 10, h-20)
 		reaper.JS_LICE_FillRect( bm, startppq, Round(y), note_w, note_h, 0xFF00FFFF, 0.5, "COPY" )
 	end
 end
