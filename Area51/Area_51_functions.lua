@@ -123,24 +123,26 @@ function split_or_delete_items(as_tr, as_items_tbl, as_start, as_dur, job)
 		local s_item_last = reaper.SplitMediaItem(item, as_start)
 		if job == "Delete" then
 			if s_item_first and s_item_last then
-				reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track( s_item_last ), s_item_last) --reaper.DeleteTrackMediaItem(as_tr, s_item_last)
+				reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track( s_item_last ), s_item_last)
 			elseif s_item_last and not s_item_first then
-				reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track( s_item_last ), s_item_last) -- reaper.DeleteTrackMediaItem(as_tr, s_item_last)
+				reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track( s_item_last ), s_item_last)
 			elseif s_item_first and not s_item_last then
-				reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track( item ), item) -- reaper.DeleteTrackMediaItem(as_tr, item)
+				reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track( item ), item)
 			elseif not s_item_first and not s_item_last then
-				reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track( item ), item) -- reaper.DeleteTrackMediaItem(as_tr, item)
+				reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track( item ), item)
 			end
 		end
 		end
 	end
 end
 
-function paste_env(tr, env_name, env_data, as_start, as_dur, time_offset, job) -- drag offset is not used, only as a flag for drag move here
+function paste_env(tr, env_name, env_data, as_start, as_dur, time_offset, job)
   if reaper.ValidatePtr( env_data[1], "MediaItem*") then return end
-  local env_paste_offset = job == "Duplicate" and as_dur or time_offset - as_start -- OFFSET BETWEEN ENVELOPE START AND MOUSE POSITION
+  local t_off = time_offset
+  local env_paste_offset = job == "Duplicate" and as_dur or t_off - as_start -- OFFSET BETWEEN ENVELOPE START AND MOUSE POSITION
+  env_paste_offset = job == "Drag_Paste" and t_off
   if tr and reaper.ValidatePtr(tr, "TrackEnvelope*") then -- IF TRACK HAS ENVELOPES PASTE THEM
-    insert_edge_points(tr, as_start, as_dur, env_paste_offset) -- INSERT EDGE POINTS AT CURRENT ENVELOE VALUE AND DELETE WHOLE RANGE INSIDE (DO NOT ALLOW MIXING ENVELOPE POINTS AND THAT WEIRD SHIT)
+    insert_edge_points(tr, as_start, as_dur, env_paste_offset, job) -- INSERT EDGE POINTS AT CURRENT ENVELOE VALUE AND DELETE WHOLE RANGE INSIDE (DO NOT ALLOW MIXING ENVELOPE POINTS AND THAT WEIRD SHIT)
     for i = 1, #env_data do
       local env = env_data[i]
       reaper.InsertEnvelopePoint(
@@ -314,6 +316,7 @@ function insert_edge_points(env, as_start, as_dur, time_offset, job)
   if not reaper.ValidatePtr(env, "TrackEnvelope*") then
     return
   end -- DO NOT ALLOW MEDIA TRACK HERE
+  time_offset = job == "Drag_Paste" and 0 or time_offset
   local edge_pts = {}
   local as_end = as_start + as_dur
   local retval, value_st, dVdS, ddVdS, dddVdS = reaper.Envelope_Evaluate(env, as_start + time_offset, 0, 0) -- DESTINATION START POINT
@@ -430,6 +433,7 @@ end
 
 -- COPY ENV PART OF THE CHUNK TO TRACK WE ARE PASTING INTO
 function get_set_envelope_chunk(track, env, as_start, as_end, time_offset)
+  if reaper.ValidatePtr(env, "MediaTrack*") then return end
   local ret, chunk = reaper.GetTrackStateChunk(track, "", false)
   local ret2, env_chunk = reaper.GetEnvelopeStateChunk(env, "")
   chunk = split_by_line(chunk)
