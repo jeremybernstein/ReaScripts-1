@@ -111,6 +111,24 @@ function lowest_start()
    return min
 end
 
+function Get_folder(tr)
+   if reaper.GetMediaTrackInfo_Value(tr, "I_FOLDERDEPTH") <= 0 then
+     return
+   end -- ignore tracks and last folder child
+   local depth, children = 0, {}
+   local folderID = reaper.GetMediaTrackInfo_Value(tr, "IP_TRACKNUMBER") - 1
+   for i = folderID + 1, reaper.CountTracks(0) - 1 do -- start from first track after folder
+     local child = reaper.GetTrack(0, i)
+     local currDepth = reaper.GetMediaTrackInfo_Value(child, "I_FOLDERDEPTH")
+     children[#children + 1] = child
+     depth = depth + currDepth
+     if depth <= -1 then
+       break
+     end --until we are out of folder
+   end
+   return children -- if we only getting folder childs
+ end
+
 function Snap_val(val)
    return reaper.GetToggleCommandState(1157) == 1 and reaper.SnapToGrid(0, val) or val
 end
@@ -229,15 +247,18 @@ local function Get_track_under_mouse(x, y)
    local _, cy = To_client(x, y)
    local track, env_info = reaper.GetTrackFromPoint(x, y)
    if track == reaper.GetMasterTrack( 0 ) and reaper.GetMasterTrackVisibility() == 0 then return end -- IGNORE DOCKED MASTER TRACK
-   if track and env_info == 0 then
+   if track and env_info == 0 then --and reaper.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH") ~= 1 then
       return track, TBH[track].t, TBH[track].b, TBH[track].h
-   elseif track and env_info == 1 then
+   elseif track and env_info == 1 then --and reaper.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH") ~= 1 then
       for i = 1, reaper.CountTrackEnvelopes(track) do
          local env = reaper.GetTrackEnvelope(track, i - 1)
          if TBH[env].t <= cy and TBH[env].b >= cy then
             return env, TBH[env].t, TBH[env].b, TBH[env].h
          end
       end
+   --elseif track and env_info == 0 and reaper.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH") == 1 then
+   --   local childs = Get_folder(track)
+   --   return track, TBH[track].t, TBH[childs[#childs]].b--, TBH[track].h
    end
 end
 
@@ -639,7 +660,7 @@ local function Main()
 
          mouse = MouseInfo()
          mouse.tr, mouse.r_t, mouse.r_b = Get_track_under_mouse(mouse.x, mouse.y)
-         CHANGE = ARRANGE and Change() or false         
+         CHANGE = ARRANGE and Change() or false
 
          WINDOW_IN_FRONT = Get_window_under_mouse()
          Track_keys()

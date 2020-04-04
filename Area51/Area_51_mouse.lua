@@ -7,6 +7,7 @@ local mouse = {
 	Ctrl  = function() return reaper.JS_Mouse_GetState(95)  &4 == 4  end,
 	Shift = function() return reaper.JS_Mouse_GetState(95)  &8 == 8  end,
 	Alt   = function() return reaper.JS_Mouse_GetState(95) &16 == 16 end,
+	Alt_Shift = function() return reaper.JS_Mouse_GetState(95) &24 == 24 end,
 	Ctrl_Shift = function() return reaper.JS_Mouse_GetState(95) &12 == 12 end,
 	Ctrl_Alt = function() return reaper.JS_Mouse_GetState(95) &20 == 20 end,
 	Ctrl_Shift_Alt = function() return reaper.JS_Mouse_GetState(95) &28 == 28 end,

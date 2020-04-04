@@ -3,14 +3,14 @@ local refresh_tracks, update, update_all
 function Delete(tr, src_tr, data, t_start, t_dur, t_offset, job)
 	if not data then return end
 	split_or_delete_items(tr, data, t_start, t_dur, job)
-	del_env(tr, t_start, t_dur, 0, job)
-	update = true
+	del_env(tr, t_start, t_dur, t_offset, job)
+	update_all = true
 end
 
-function Split(tr, src_tr,data, t_start, t_dur, t_offset, job)
+function Split(tr, src_tr, data, t_start, t_dur, t_offset, job)
 	if not data then return end
 	split_or_delete_items(tr, data, t_start, t_dur, job)
-	update = true
+	update_all = true
 end
 
 function Paste(tr, src_tr, data, t_start, t_dur, t_offset, job)
@@ -105,11 +105,11 @@ function del_env(env_track, as_start, as_dur, pos_offset, job)
 	local retval1, time1, value1, shape1, tension1, selected1 = reaper.GetEnvelopePoint(env_track, first_env)
 	local retval2, time2, value2, shape2, tension2, selected2 = reaper.GetEnvelopePoint(env_track, last_env)
 
-	if value1 == 0 or value2 == 0 then
-		reaper.DeleteEnvelopePointRange(env_track, as_start, as_start + as_dur)
-	else
-		insert_edge_points(env_track, as_start, as_start + as_dur, pos_offset, job)
-	end
+	--if value1 == 0 or value2 == 0 then
+	reaper.DeleteEnvelopePointRange(env_track, as_start, as_start + as_dur)
+--	else
+	--	insert_edge_points(env_track, as_start, as_start + as_dur, pos_offset, job)
+	--end
 	reaper.Envelope_SortPoints(env_track)
 end
 
@@ -139,7 +139,7 @@ function paste_env(tr, env_name, env_data, as_start, as_dur, time_offset, job)
   if reaper.ValidatePtr( env_data[1], "MediaItem*") then return end
   local t_off = time_offset
   local env_paste_offset = job == "Duplicate" and as_dur or t_off - as_start -- OFFSET BETWEEN ENVELOPE START AND MOUSE POSITION
-  env_paste_offset = job == "Drag_Paste" and t_off
+  env_paste_offset = job == "Drag_Paste" and t_off or env_paste_offset
   if tr and reaper.ValidatePtr(tr, "TrackEnvelope*") then -- IF TRACK HAS ENVELOPES PASTE THEM
     insert_edge_points(tr, as_start, as_dur, env_paste_offset, job) -- INSERT EDGE POINTS AT CURRENT ENVELOE VALUE AND DELETE WHOLE RANGE INSIDE (DO NOT ALLOW MIXING ENVELOPE POINTS AND THAT WEIRD SHIT)
     for i = 1, #env_data do
