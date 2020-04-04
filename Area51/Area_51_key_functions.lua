@@ -38,7 +38,7 @@ end
 
 function As_split()
   local tbl = Get_area_table()
-  Area_function(tbl, "Split")
+  Area_function(tbl, "Splita")
 end
 
 function Select_as(num)

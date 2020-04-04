@@ -53,7 +53,7 @@ local crash = function(errObject)
    end
    Release_reaper_keys()
    reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
-  -- Exit()
+   --Exit()
 end
 
 function Msg(m)
