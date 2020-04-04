@@ -37,7 +37,6 @@ function Drag_Paste(tr, src_tr, data, t_start, t_dur, t_offset, job)
   if not data then return end
   create_item(tr, data, t_start, t_dur, t_offset, job)
   paste_env(tr, src_tr, data, t_start, t_dur, t_offset, job)
-  refresh_tracks = true
 end
 
 function Area_function(tbl,func)

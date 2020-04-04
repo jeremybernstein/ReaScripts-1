@@ -81,7 +81,7 @@ function Element:update_zone(z)
       else
         Area_function({self}, "Drag_Paste")
       end
-        Ghost_unlink_or_destroy({self}, "Unlink")
+      Ghost_unlink_or_destroy({self}, "Unlink")
     end
     --create_undo(z, z[1])
     ZONE_BUFFER = nil
