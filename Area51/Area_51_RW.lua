@@ -3,7 +3,7 @@ package.cursor = debug.getinfo(1, "S").source:match [[^@?(.*[\/])[^\/]-$]] .. "C
 
 require("Area_51_class")      -- AREA FUNCTIONS SCRIPT
 require("Area_51_ghosts")     -- AREA MOUSE INPUT HANDLING
-require("Area_51_keyboard")      -- AREA KEYBOARD INPUT HANDLING
+require("Area_51_keyboard")   -- AREA KEYBOARD INPUT HANDLING
 require("Area_51_mouse")      -- AREA MOUSE INPUT HANDLING
 require("Area_51_functions")  -- AREA CLASS SCRIPT
 require("Area_51_key_functions")  -- AREA CLASS SCRIPT
@@ -380,6 +380,7 @@ end
 function Ghost_unlink_or_destroy(tbl, job)
    if not tbl then return end
    for a = 1, #tbl do
+      if not tbl[a].sel_info then return end
       for i = 1, #tbl[a].sel_info do
          if tbl[a].sel_info[i].ghosts then
             for j = 1, #tbl[a].sel_info[i].ghosts do

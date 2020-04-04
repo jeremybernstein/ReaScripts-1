@@ -53,14 +53,14 @@ function Area_function(tbl,func)
       local tr_offset = copy and Mouse_tr_offset() or 0
 
       for i = 1, #tbl_t.sel_info do	-- LOOP THRU AREA DATA
-        local new_env_tr
         local sel_info_t = tbl_t.sel_info[i]
         local target_track = sel_info_t.track -- AREA TRACK
         ------------------------------------------------------------------------------------------------------------------------------------------------
         local new_tr, under = Track_from_offset(target_track, tr_offset)                                                                              --
         new_tr = under and Insert_track(under) or new_tr                                                                                              --
-        new_env_tr, mode = Env_Mouse_Match_Override_offset(tbl_t.sel_info, new_tr, i-1, tbl_t.sel_info[i].env_name)-- ENVELOPE COPY MODE OFFSET --  ONLY FOR COPY MODE
+        local new_env_tr, mode = Env_Mouse_Match_Override_offset(tbl_t.sel_info, new_tr, i-1, tbl_t.sel_info[i].env_name)-- ENVELOPE COPY MODE OFFSET --  ONLY FOR COPY MODE
         local off_tr = mode and new_env_tr or new_tr -- OVERRIDE MODE IS ACTIVE ONLY ON SIGNLE ACTIVE AREAS OTHERWISE IT REVERTS TO MATCH MODE        --
+        MODE = mode
         ------------------------------------------------------------------------------------------------------------------------------------------------
         off_tr = copy and off_tr or target_track -- OFFSET TRACK ONLY IF WE ARE IN COPY MODE
 
@@ -156,7 +156,7 @@ function paste_env(tr, env_name, env_data, as_start, as_dur, time_offset, job)
       )
     end
     reaper.Envelope_SortPoints(tr)
-  elseif tr and reaper.ValidatePtr(tr, "MediaTrack*") and not mode then
+  elseif tr and reaper.ValidatePtr(tr, "MediaTrack*") and not MODE then
     get_set_envelope_chunk(tr, env_name, as_start, as_start + as_dur, env_paste_offset)
   end
 end
