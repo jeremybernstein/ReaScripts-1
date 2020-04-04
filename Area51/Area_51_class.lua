@@ -77,7 +77,7 @@ function Element:update_zone(z)
   elseif mouse.l_up then
     if z[1] == "C" then
       if not drag_copy then
-        move_items_envs(z[5].sel_info, self.sel_info, {z[2], z[3]}, {self.time_start,self.time_dur}, self.time_start - z[2])
+        Move_items_envs(z[5].sel_info, self.sel_info, {z[2], z[3]}, {self.time_start,self.time_dur}, self.time_start - z[2])
       else
         Area_function({self}, "Drag_Paste")
       end

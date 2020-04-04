@@ -212,7 +212,7 @@ function Insert_track(under)
     return new_offset_tr
 end
 
-function move_items_envs(src_tbl, dst_tbl, src_t, dst_t, time_offset)
+function Move_items_envs(src_tbl, dst_tbl, src_t, dst_t, time_offset)
   reaper.Undo_BeginBlock()
   for i = 1, #dst_tbl do
     if dst_tbl[i].items then
@@ -307,7 +307,7 @@ end
 function env_prop(env)
   br_env = reaper.BR_EnvAlloc(env, false)
   local active, visible, armed, inLane, laneHeight, defaultShape, minValue, maxValue, centerValue, type, faderScaling =
-    reaper.BR_EnvGetProperties(br_env, true, true, true, true, 0, 0, 0, 0, 0, 0, true)
+  reaper.BR_EnvGetProperties(br_env, true, true, true, true, 0, 0, 0, 0, 0, 0, true)
 end
 
 --insert_edge_points(env_track, as_start, as_end, 0, nil, job)
@@ -322,19 +322,6 @@ function insert_edge_points(env, as_start, as_dur, time_offset, job)
   reaper.InsertEnvelopePoint(env, as_start + time_offset - 0.001, value_st, 0, 0, true, true)
   local retval, value_et, dVdS, ddVdS, dddVdS = reaper.Envelope_Evaluate(env, as_end + time_offset, 0, 0) -- DESTINATION END POINT
   reaper.InsertEnvelopePoint(env, as_end + time_offset + 0.001, value_et, 0, 0, true, true)
-
-  reaper.DeleteEnvelopePointRange(env, as_start + time_offset, as_end + time_offset)
-  --[[
-  if job == "Delete" then
-    return
-  end
-
-  local retval, value_s, dVdS, ddVdS, dddVdS = reaper.Envelope_Evaluate(src_tr, as_start, 0, 0) -- SOURCE START POINT
-  reaper.InsertEnvelopePoint(env, as_start + time_offset + 0.001, value_s, 0, 0, true, false)
-
-  local retval, value_e, dVdS, ddVdS, dddVdS = reaper.Envelope_Evaluate(src_tr, as_end, 0, 0) -- SOURCE END POINT
-  reaper.InsertEnvelopePoint(env, as_end + time_offset - 0.001, value_e, 0, 0, true, false)
-  ]]
 end
 
 function get_items_in_as(as_tr, as_start, as_end, as_items)
@@ -404,12 +391,26 @@ local AI_info = {
 function get_as_tr_AI(as_tr, as_start, as_end)
   local as_AI = {}
   for i = 1, reaper.CountAutomationItems(as_tr) do
+    local AI_Points = {}
     local AI = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[2], 0, false) -- GET AI POSITION
     if AI >= as_start and AI <= as_end then
       as_AI[#as_AI + 1] = {} -- MAKE NEW TABLE FOR AI
       for j = 1, #AI_info do
         as_AI[#as_AI][AI_info[j]] = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[j], 0, false) -- ADD AI INFO TO AI TABLE
       end
+      for j = 1,reaper.CountEnvelopePointsEx( as_tr, i-1) do
+        local retval, time, value, shape, tension, selected = reaper.GetEnvelopePointEx( as_tr, i-1, j)
+        AI_Points[#AI_Points + 1] = {
+          id = i - 1,
+          retval = retval,
+          time = time,
+          value = value,
+          shape = shape,
+          tension = tension,
+          selected = true
+        }
+      end
+      as_AI[#as_AI].points = AI_Points
     end
   end
   return #as_AI ~= 0 and as_AI

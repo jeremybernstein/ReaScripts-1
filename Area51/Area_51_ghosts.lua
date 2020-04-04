@@ -22,19 +22,32 @@ local function env_AI_lane(val)
 	return lane
 end
 
+function get_item_type(item)
+	local take = reaper.GetMediaItemTake(item, 0)
+  	local source = reaper.GetMediaItemTake_Source(take)
+  	return reaper.GetMediaSourceType(source, "")
+end
+
 function Get_item_ghosts(tr, items, as_start, as_end)
 	if not items then return end
 	local ghosts = {}
 	for i = 1, #items do
 		local item = items[i]
+		local take = reaper.GetMediaItemTake(item, 0)
 		local item_start, item_len = get_item_time_in_area(item, as_start, as_end)
-		local x, w = Convert_time_to_pixel(item_start, item_len) --local x, w = Get_Set_Position_In_Arrange(item_start, item_len)  -- CONVERT TIME TO PIXEL (START TO X, LEN TO W)
+		local x, w = Convert_time_to_pixel(item_start, item_len) 
 		local y, h = Get_tr_TBH(tr)
 		ghosts[#ghosts + 1] = Ghosts:new(x, y, w, h, item, item_start, item_len, {w, h} )
 		reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0)
 		reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
-		local peaks = Get_Item_Peaks(item, item_start, item_len)
-		Draw_peak(peaks, ghosts[#ghosts].bm, h)
+		local peaks = (not reaper.TakeIsMIDI(take)) and Get_Item_Peaks(item, item_start, item_len) or Get_MIDI_notes(item, item_start, item_len)
+		--MIDI_NOTES = Get_MIDI_notes(item, item_start, item_len)
+		--Draw_midi(MIDI_NOTES, ghosts[#ghosts].bm, item_start, item_len, w, h)
+		if reaper.TakeIsMIDI(take) then
+			Draw_midi(peaks, ghosts[#ghosts].bm, item_start, item_len, w, h)
+		else
+			Draw_peak(peaks, ghosts[#ghosts].bm, h)
+		end
 	end
 	return ghosts
 end
@@ -78,10 +91,11 @@ function Get_MIDI_notes(item, item_start, item_len)
 	end
 	return t
 end
+
  -- GET ITEM PEAKS
 function Get_Item_Peaks(item, item_start, item_len)
 	local take = reaper.GetActiveTake(item)
-	local _, w = Convert_time_to_pixel(item_start, item_len) --local _, w = Get_Set_Position_In_Arrange(item_start, item_len)-- CONVERT TIME TO PIXEL (START TO X, LEN TO W)
+	local _, w = Convert_time_to_pixel(item_start, item_len)
 	w = w > 0 and w or 1 -- FIX CRASHING IF WITH IS LESS THAN 1 PIXEL
 	local scaled_len = item_len/ item_len * w
 	local PCM_source = reaper.GetMediaItemTake_Source(take)
@@ -138,19 +152,33 @@ function Draw_env(env_tr, env, bm, x, h)
 	end
 end
 
+function Min_max(tbl)
+	local min = tbl[3]
+	local max = tbl[3]
+	for i = 3, #tbl, 3 do
+	   if tbl[i] < min then
+		  min = tbl[i]
+	   elseif tbl[i] > max then
+		max	= tbl[i]
+	   end -- FIND LOWEST (FIRST) TIME SEL START
+	end
+	return min,max
+ end
+
 -- DRAW MIDI NOTES TO GHOST IMAGE
-function Draw_midi(notes,bm, x, y, w, h)
-	note = item.peaks
-	note_h = h/128
+function Draw_midi(peaks,bm, pos, len, w, h)
+	local notes_num = Round(#peaks/3)
+	local note_h = Round((h/128)+5)
+	local min,max = Min_max(peaks) -- MINIMAL AND MAXIMUIM PITCH IN PEAKS 
 	if note_h < 1 then note_h = 1 end
-	for i=1, #note, 3 do
-		startppq, endppq, pitch = note[i], note[i+1], note[i+2]
-		startppq = pos + (startppq-item.pos)/items_len * w
-		endppq = pos + (endppq-item.pos)/items_len * w
-		note_w = endppq-startppq
+	for i=1, #peaks, 3 do
+		local startppq, endppq, pitch = peaks[i], peaks[i+1], peaks[i+2]
+		startppq = Round(pos + (startppq-pos)/len * w)
+		endppq = Round(pos + (endppq-pos)/len * w)
+		local note_w = Round(endppq-startppq)
 		if note_w < 1 then note_w = 1 end
-		--gfx.rect(startppq, y2-(pitch/128*h)-note_h, note_w, note_h, 1)
-		--reaper.JS_LICE_Line( bm, 0.5*i, max_peak, 0.5*i, note_h, 0xFF00FFFF,1, "COPY", true )
+		local y = TranslateRange(pitch, max, min, 10, h-20)
+		reaper.JS_LICE_FillRect( bm, startppq, Round(y), note_w, note_h, 0xFF00FFFF, 0.5, "COPY" )
 	end
 end
 

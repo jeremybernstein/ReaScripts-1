@@ -13,8 +13,8 @@ local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRAC
 local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
 local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTONDOWN", false) -- INTERCEPT MOUSE L BUTTON
 
-Areas_TB = {}
---local active_as
+local Areas_TB = {}
+local active_as
 copy = false
 
 UNDO_BUFFER = {}
@@ -51,6 +51,7 @@ local crash = function(errObject)
                            "Reaper:       \t" .. reaper.GetAppVersion() .. "\n" .. "Platform:     \t" .. reaper.GetOS()
       )
    end
+   --Exit()
 end
 
 function Msg(m)
@@ -111,22 +112,22 @@ function lowest_start()
    return min
 end
 
-function Get_folder(tr)
+function Get_folder_last_child(tr)
    if reaper.GetMediaTrackInfo_Value(tr, "I_FOLDERDEPTH") <= 0 then
      return
    end -- ignore tracks and last folder child
-   local depth, children = 0, {}
+   local depth, last_child = 0
    local folderID = reaper.GetMediaTrackInfo_Value(tr, "IP_TRACKNUMBER") - 1
    for i = folderID + 1, reaper.CountTracks(0) - 1 do -- start from first track after folder
      local child = reaper.GetTrack(0, i)
      local currDepth = reaper.GetMediaTrackInfo_Value(child, "I_FOLDERDEPTH")
-     children[#children + 1] = child
+     last_child = child
      depth = depth + currDepth
      if depth <= -1 then
        break
      end --until we are out of folder
    end
-   return children -- if we only getting folder childs
+   return last_child -- if we only getting folder childs
  end
 
 function Snap_val(val)
@@ -247,18 +248,16 @@ local function Get_track_under_mouse(x, y)
    local _, cy = To_client(x, y)
    local track, env_info = reaper.GetTrackFromPoint(x, y)
    if track == reaper.GetMasterTrack( 0 ) and reaper.GetMasterTrackVisibility() == 0 then return end -- IGNORE DOCKED MASTER TRACK
-   if track and env_info == 0 then --and reaper.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH") ~= 1 then
+   if track and env_info == 0 then
       return track, TBH[track].t, TBH[track].b, TBH[track].h
-   elseif track and env_info == 1 then --and reaper.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH") ~= 1 then
+     -- return track, TBH[track].t, TBH[Get_folder_last_child(track)].b -- reaper.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH") == 1 then
+   elseif track and env_info == 1 then
       for i = 1, reaper.CountTrackEnvelopes(track) do
          local env = reaper.GetTrackEnvelope(track, i - 1)
          if TBH[env].t <= cy and TBH[env].b >= cy then
             return env, TBH[env].t, TBH[env].b, TBH[env].h
          end
       end
-   --elseif track and env_info == 0 and reaper.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH") == 1 then
-   --   local childs = Get_folder(track)
-   --   return track, TBH[track].t, TBH[childs[#childs]].b--, TBH[track].h
    end
 end
 
@@ -582,9 +581,10 @@ function Track_offset(src_tbl, dest_tbl)
 
    for i = #src_tbl, 1, -1 do
       local tr = src_tbl[i].track
-      local tr_num = reaper.CSurf_TrackToID(tr, false)
-      local offset_num = tr_num + mouse_delta
-      local new_tr = reaper.CSurf_TrackFromID(offset_num, false)
+      local new_tr, under = Track_from_offset(tr, mouse_delta)
+      --local tr_num = reaper.CSurf_TrackToID(tr, false)
+      --local offset_num = tr_num + mouse_delta
+      --local new_tr = reaper.CSurf_TrackFromID(offset_num, false)
 
       if (mouse_delta + first_area_tr_num) > 0 and (mouse_delta + last_area_tr_num) <= last_project_tr_id then
          dest_tbl[i].track = new_tr
@@ -634,7 +634,7 @@ local function find_visible_tracks(cur_offset_id)
    end -- TO DO FIX
    for i = cur_offset_id, reaper.CountTracks(0) do
       local track = reaper.GetTrack(0, i - 1)
-      if reaper.IsTrackVisible(track, false) then
+      if track and reaper.IsTrackVisible(track, false) then
          return i
       else
       end
