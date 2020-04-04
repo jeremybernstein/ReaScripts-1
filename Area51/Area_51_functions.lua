@@ -181,10 +181,11 @@ function create_item(tr, data, as_start, as_dur, time_offset, job)
     local new_Take = reaper.AddTakeToMediaItem(new_Item)
 
     if is_midi then -- MIDI COPIES GET INTO SAME POOL IF JUST SETTING CHUNK SO WE NEED TO SET NEW POOL ID TO NEW COPY
-      local _, chunk = reaper.GetItemStateChunk(item, "")
-      local pool_guid = string.match(chunk, "POOLEDEVTS {(%S+)}"):gsub("%-", "%%-")
-      local new_pool_guid = reaper.genGuid():sub(2, -2) -- MIDI ITEM
-      chunk = string.gsub(chunk, pool_guid, new_pool_guid)
+      local chunk = Change_item_guids(item)
+      --local _, chunk = reaper.GetItemStateChunk(item, "")
+      --local pool_guid = string.match(chunk, "POOLEDEVTS {(%S+)}"):gsub("%-", "%%-")
+      --local new_pool_guid = reaper.genGuid():sub(2, -2) -- MIDI ITEM
+      --chunk = string.gsub(chunk, pool_guid, new_pool_guid)
       reaper.SetItemStateChunk(new_Item, chunk, false)
     else -- NORMAL TRACK ITEMS
       filename = reaper.GetMediaSourceFileName(source, "")
@@ -458,4 +459,52 @@ function get_set_envelope_chunk(track, env, as_start, as_end, time_offset)
   end
   local new_chunk = table.concat(chunk, "\n")
   reaper.SetTrackStateChunk(track, new_chunk, true)
+end
+
+function Change_item_guids(item)
+  local _, chunk = reaper.GetItemStateChunk(item, '', false)
+  local take = reaper.GetMediaItemTake(item, 0)
+  local item_is_MIDI = reaper.TakeIsMIDI(take)
+  local chunk_lines = split_by_line(chunk)
+
+  for j = 1, #chunk_lines do
+    local line = chunk_lines[j]
+    if string.match(line, 'IGUID {(%S+)}') then
+      local new_guid = reaper.genGuid()
+      chunk_lines[j] = 'IGUID ' .. new_guid
+    elseif string.match(line, "GUID {(%S+)}") then
+      local new_guid = reaper.genGuid()
+      chunk_lines[j] = 'GUID ' .. new_guid
+    end
+
+    if item_is_MIDI then
+      if string.match(line, "POOLEDEVTS {(%S+)}") then
+        local new_guid = reaper.genGuid()
+        chunk_lines[j] = 'POOLEDEVTS' .. new_guid
+      end
+
+      if line == 'TAKE' then
+        for k = j+1, #chunk_lines do -- scan chunk ahead to modify take chunk
+          local take_line = chunk_lines[k]
+
+          if string.match( take_line, 'POOLEDEVTS' ) then
+            local new_guid = reaper.genGuid()
+            chunk_lines[k] = 'POOLEDEVTS ' .. new_guid
+          elseif string.match( take_line , 'GUID' ) then
+            local new_guid = reaper.genGuid()
+            chunk_lines[k] = 'GUID ' .. new_guid
+          end
+
+          if take_line == '>' then
+            j = k
+            goto take_chunk_break
+          end
+        end
+
+        ::take_chunk_break::
+      end
+    end
+  end
+  chunk = table.concat(chunk_lines, "\n")
+  return chunk
 end
