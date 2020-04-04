@@ -170,7 +170,7 @@ function Draw_midi(peaks,bm, pos, len, w, h)
 		endppq = Round(pos + (endppq - pos) / len * w)
 		local note_w = Round(endppq - startppq)
 		if note_w < 1 then note_w = 1 end
-		local y = max and h/2 or TranslateRange(pitch, max, min, 10, h-20)
+		local y = (min == max) and h/2 or TranslateRange(pitch, max, min, 10, h-20)
 		reaper.JS_LICE_FillRect( bm, startppq, Round(y), note_w, note_h, 0xFF00FFFF, 0.5, "COPY" )
 	end
 end
