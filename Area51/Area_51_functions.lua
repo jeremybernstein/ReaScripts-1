@@ -98,18 +98,18 @@ function Area_function(tbl,func)
     reaper.UpdateArrange()
 end
 
-function del_env(env_track, as_start, as_end, pos_offset, job)
+function del_env(env_track, as_start, as_dur, pos_offset, job)
   if reaper.ValidatePtr(env_track, "MediaTrack*") then return end
 	local first_env = reaper.GetEnvelopePointByTime(env_track, as_start)
-	local last_env = reaper.GetEnvelopePointByTime(env_track, as_end) + 1
+	local last_env = reaper.GetEnvelopePointByTime(env_track, as_start + as_dur) + 1
 
 	local retval1, time1, value1, shape1, tension1, selected1 = reaper.GetEnvelopePoint(env_track, first_env)
 	local retval2, time2, value2, shape2, tension2, selected2 = reaper.GetEnvelopePoint(env_track, last_env)
 
 	if value1 == 0 or value2 == 0 then
-		reaper.DeleteEnvelopePointRange(env_track, as_start, as_end)
+		reaper.DeleteEnvelopePointRange(env_track, as_start, as_start + as_dur)
 	else
-		insert_edge_points(env_track, as_start, as_end, pos_offset, job)
+		insert_edge_points(env_track, as_start, as_start + as_dur, pos_offset, job)
 	end
 	reaper.Envelope_SortPoints(env_track)
 end

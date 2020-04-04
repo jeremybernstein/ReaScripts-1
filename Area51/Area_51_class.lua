@@ -5,7 +5,7 @@ local cur_path = package.cursor
 local Element = {}
 
 local ZONE_BUFFER
-local split
+local split, drag_copy
 
 function Color()
 end
