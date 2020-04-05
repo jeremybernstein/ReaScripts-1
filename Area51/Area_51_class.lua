@@ -129,7 +129,6 @@ function Element:copy()
           end
         end
     end
-    DRAW_GHOSTS = false
 end
 
 function Element:ghosts(off_time, off_tr)

@@ -17,8 +17,7 @@ local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTO
 local Areas_TB = {}
 local active_as
 copy = false
-
-UNDO_BUFFER = {}
+local CHANGE
 
 local crash = function(errObject)
    local byLine = "([^\r\n]*)\r?\n?"
@@ -52,9 +51,9 @@ local crash = function(errObject)
                            "Reaper:       \t" .. reaper.GetAppVersion() .. "\n" .. "Platform:     \t" .. reaper.GetOS()
       )
    end
-   Release_reaper_keys()
-   reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
-   --Exit()
+   --Release_reaper_keys()
+   --reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
+   Exit()
 end
 
 function Msg(m)
@@ -138,14 +137,14 @@ function Snap_val(val)
 end
 
 function create_undo(tbl)
-   UNDO_BUFFER[#UNDO_BUFFER+1] = tbl
+  -- UNDO_BUFFER[#UNDO_BUFFER+1] = tbl
 end
 
 function make_undo()
-   if #UNDO_BUFFER ~= 0 then
-      ALast_undo = UNDO_BUFFER[#UNDO_BUFFER]
-      AArea = Has_val(Areas_TB, nil, ALast_undo.guid)
-   end
+   --if #UNDO_BUFFER ~= 0 then
+   --   ALast_undo = UNDO_BUFFER[#UNDO_BUFFER]
+   --   AArea = Has_val(Areas_TB, nil, ALast_undo.guid)
+   --end
 end
 
 local function Check_undo_history()
