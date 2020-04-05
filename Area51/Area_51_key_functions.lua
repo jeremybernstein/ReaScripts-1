@@ -3,7 +3,7 @@ function Remove()
   if copy then
      Copy_mode()
   end -- DISABLE COPY MODE
-  Ghost_unlink_or_destroy(tbl, "Delete")
+  --Ghost_unlink_or_destroy(tbl, "Delete")
   RemoveAsFromTable(tbl, "Delete", "~=")
   BLOCK = nil
   Set_active_as(nil)

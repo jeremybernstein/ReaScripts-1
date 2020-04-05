@@ -11,6 +11,7 @@ require("Area_51_key_functions")  -- AREA CLASS SCRIPT
 local main_wnd = reaper.GetMainHwnd() -- GET MAIN WINDOW
 local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRACK VIEW
 local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
+local last_project, last_project_fn = reaper.EnumProjects(-1, "")
 local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTONDOWN", false) -- INTERCEPT MOUSE L BUTTON
 
 local Areas_TB = {}
@@ -364,13 +365,26 @@ function RemoveAsFromTable(tab, val, job)
       local in_table = tab[i].guid
       if job == "==" then
          if in_table == val then
+            Remove_ghost(tab[i].sel_info)
             reaper.JS_LICE_DestroyBitmap(tab[i].bm) -- DESTROY BITMAPS FROM AS THAT WILL BE DELETED
             table.remove(tab, i) -- REMOVE AS FROM TABLE
          end
       elseif job == "~=" then
          if in_table ~= val then -- REMOVE ANY AS THAT HAS DIFFERENT GUID
+            Remove_ghost(tab[i].sel_info)
             reaper.JS_LICE_DestroyBitmap(tab[i].bm) -- DESTROY BITMAPS FROM AS THAT WILL BE DELETED
             table.remove(tab, i) -- REMOVE AS FROM TABLE
+         end
+      end
+   end
+end
+
+function Remove_ghost(tbl)
+   if not tbl then return end
+   for i = 1, #tbl do
+      if tbl[i].ghosts then
+         for j = 1, #tbl[i].ghosts do
+            reaper.JS_LICE_DestroyBitmap(tbl[i].ghosts[j].bm)
          end
       end
    end
@@ -655,11 +669,21 @@ function Track_from_offset(tr, offset)
    return new_tr, under
 end
 
+function Check_project()
+   local proj, projfn = reaper.EnumProjects(-1, "")
+   if last_project ~= proj then
+      Remove()
+     last_proj_change_count = reaper.GetProjectStateChangeCount(0)
+     last_project = proj
+   end
+ end
+
 local function Main()
    xpcall(
       function()
          GetTracksXYH() -- GET XYH INFO OF ALL TRACKS
          Check_undo_history()
+         Check_project()
 
          mouse = MouseInfo()
          mouse.tr, mouse.r_t, mouse.r_b = Get_track_under_mouse(mouse.x, mouse.y)
@@ -688,13 +712,13 @@ local function Main()
 end
 
 function Exit() -- DESTROY ALL BITMAPS ON REAPER EXIT
-   Ghost_unlink_or_destroy(Areas_TB, "Delete")
+   reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
+   Release_reaper_keys()
+   --Ghost_unlink_or_destroy(Areas_TB, "Delete")
    RemoveAsFromTable(Areas_TB, "Delete", "~=")
    if reaper.ValidatePtr(track_window, "HWND") then
       Refresh_reaper()
    end
-   Release_reaper_keys()
-   reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
 end
 
 reaper.atexit(Exit)
