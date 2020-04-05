@@ -6,6 +6,7 @@ local Element = {}
 
 local ZONE_BUFFER
 local split, drag_copy
+local CUR_AREA_ZONE
 
 function Color()
 end
@@ -148,12 +149,12 @@ end
 
 function Element:pointIN(sx, sy)
   local x, y = To_client(sx, sy)
-  return x >= self.x and x <= self.x + self.w and y >= self.y and y <= self.y + self.h --then -- IF MOUSE IS IN ELEMENT
+  return x >= self.x and x <= self.x + self.w and y >= self.y and y <= self.y + self.h
 end
 
 function Element:zoneIN(sx, sy)
   local x, y = To_client(sx, sy)
-  local range2 = 8
+  local range2 = 10
 
   if x >= self.x and x <= self.x + range2 then
     if y >= self.y and y <= self.y + range2 then
@@ -188,7 +189,7 @@ function Element:zoneIN(sx, sy)
 end
 
 function Element:mouseZONE()
-  return self:zoneIN(mouse.ox, mouse.oy) -- mouse.ox, mouse.oy
+  return self:zoneIN(mouse.ox, mouse.oy)-- mouse.ox, mouse.oy
 end
 
 function Element:mouseIN()
@@ -243,7 +244,9 @@ function Element:track()
     self:update_zone(ZONE_BUFFER)
   end
 
-  BLOCK = (self:mouseIN() or ZONE_BUFFER) and true or nil  -- GLOBAL BLOCKING FLAG IF MOUSE IS OVER AREA (ALSO USED TO INTERCEPT LMB CLICK)
+  BLOCK = (CUR_AREA_ZONE or ZONE_BUFFER) and true or nil  -- GLOBAL BLOCKING FLAG IF MOUSE IS OVER AREA (ALSO USED TO INTERCEPT LMB CLICK)
+  A51_cursor = ZONE_BUFFER and ZONE_BUFFER[1] or CUR_AREA_ZONE
+  Change_cursor(A51_cursor)
 end
 
 AreaSelection = {}
@@ -254,6 +257,14 @@ Extended(Ghosts, Element)
 function Track(tbl)
   for _, area in pairs(tbl) do
     area:track()
+  end
+  for i = 1, #tbl do
+    if tbl[i]:mouseIN() then
+      CUR_AREA_ZONE = tbl[i]:zoneIN(mouse.x,mouse.y)[1]
+      break
+    else
+      CUR_AREA_ZONE = nil
+    end
   end
 end
 

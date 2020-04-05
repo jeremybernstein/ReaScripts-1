@@ -675,7 +675,36 @@ function Check_project()
      last_proj_change_count = reaper.GetProjectStateChangeCount(0)
      last_project = proj
    end
- end
+end
+
+local reaper_cursors_list = {
+   {187, "C"}, -- MOVE
+   {185, "DRAW"}, -- DRAW
+   {462, "L"}, -- LEFT EDGE
+   {462, "R"}, -- RIGHT EDGE
+   {530, "T"}, -- FADE RIGHT
+   {530, "B"} -- FADE LEFT
+}
+
+function Change_cursor(zone)
+   if zone then
+      if not ICON_INT then
+         reaper.JS_WindowMessage_Intercept(track_window, "WM_SETCURSOR", false)
+         ICON_INT = true
+      end
+      for i = 1, #reaper_cursors_list do
+         if zone == reaper_cursors_list[i][2] then
+            local cursor = reaper.JS_Mouse_LoadCursor(reaper_cursors_list[i][1])
+            reaper.JS_Mouse_SetCursor(cursor)
+         end
+      end
+   else
+      if ICON_INT then
+         reaper.JS_WindowMessage_Release(track_window, "WM_SETCURSOR")
+         ICON_INT = false
+      end
+   end
+end
 
 local function Main()
    xpcall(

@@ -100,14 +100,16 @@ end
 
 function del_env(env_track, as_start, as_dur, pos_offset, job)
   if reaper.ValidatePtr(env_track, "MediaTrack*") then return end
+  --local min, max, center = env_prop(env_track)
 	local first_env = reaper.GetEnvelopePointByTime(env_track, as_start)
 	local last_env = reaper.GetEnvelopePointByTime(env_track, as_start + as_dur) + 1
 
 	local retval1, time1, value1, shape1, tension1, selected1 = reaper.GetEnvelopePoint(env_track, first_env)
 	local retval2, time2, value2, shape2, tension2, selected2 = reaper.GetEnvelopePoint(env_track, last_env)
 
-	--if value1 == 0 or value2 == 0 then
-	reaper.DeleteEnvelopePointRange(env_track, as_start, as_start + as_dur)
+	--if value1 == center or value2 == center then
+  reaper.DeleteEnvelopePointRange(env_track, as_start, as_start + as_dur)
+  --end
 --	else
 	--	insert_edge_points(env_track, as_start, as_start + as_dur, pos_offset, job)
 	--end
@@ -307,9 +309,10 @@ function as_item_position(item, as_start, as_dur, time_offset, job)
 end
 
 function env_prop(env)
-  br_env = reaper.BR_EnvAlloc(env, false)
-  local active, visible, armed, inLane, laneHeight, defaultShape, minValue, maxValue, centerValue, type, faderScaling =
-  reaper.BR_EnvGetProperties(br_env, true, true, true, true, 0, 0, 0, 0, 0, 0, true)
+  local br_env = reaper.BR_EnvAlloc(env, false)
+  local active, visible, armed, inLane, laneHeight, defaultShape, minValue, maxValue, centerValue, type_, faderScaling = reaper.BR_EnvGetProperties(br_env, true, true, true, true, 0, 0, 0, 0, 0, 0, true)
+  reaper.BR_EnvFree( env, true )
+  return minValue, maxValue, centerValue
 end
 
 --insert_edge_points(env_track, as_start, as_end, 0, nil, job)

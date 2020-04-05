@@ -65,6 +65,7 @@ end
 
 function Get_MIDI_notes(item, item_start, item_len)
 	local take = reaper.GetActiveTake(item)
+	--if not take then return end
 	local item_end = item_start + item_len
 	local t = {}
 	local ret, notecnt = reaper.MIDI_CountEvts(take)
@@ -90,10 +91,14 @@ end
  -- GET ITEM PEAKS
 function Get_Item_Peaks(item, item_start, item_len)
 	local take = reaper.GetActiveTake(item)
+	--if not take then return end
 	local _, w = Convert_time_to_pixel(item_start, item_len)
 	w = w > 0 and w or 1 -- FIX CRASHING IF WITH IS LESS THAN 1 PIXEL
 	local scaled_len = item_len/ item_len * w
 	local PCM_source = reaper.GetMediaItemTake_Source(take)
+
+	--reaper.PCM_Source_GetPeaks( src, peakrate, starttime, numchannels, numsamplesperchannel, want_extra_type, buf )
+
 	local n_chans = reaper.GetMediaSourceNumChannels(PCM_source)
 	local peakrate = scaled_len/item_len
 	local n_spls = math.floor(item_len * peakrate + 0.5) -- its Peak Samples
