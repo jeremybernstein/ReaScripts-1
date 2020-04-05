@@ -14,7 +14,7 @@ local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
 local last_project, last_project_fn = reaper.EnumProjects(-1, "")
 local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTONDOWN", false) -- INTERCEPT MOUSE L BUTTON
 
-local Areas_TB = {}
+Areas_TB = {}
 local active_as
 copy = false
 local CHANGE
@@ -442,7 +442,7 @@ local function GetTrackData(tbl, as_start, as_end)
          local _, env_name = reaper.GetEnvelopeName(tbl[i].track)
          tbl[i].env_name = env_name -- ENVELOPE NAME
          tbl[i].env_points = get_as_tr_env_pts(tbl[i].track, as_start, as_end) -- ENVELOPE POINTS
-         tbl[i].AIs = get_as_tr_AI(tbl[i].track, as_start, as_end) -- AUTOMATION ITEMS
+         tbl[i].AI = get_as_tr_AI(tbl[i].track, as_start, as_end) -- AUTOMATION ITEMS
          tbl[i].ghosts = Get_env_ghosts(tbl[i].track, tbl[i].env_points)
       end
    end

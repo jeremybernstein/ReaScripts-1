@@ -47,7 +47,7 @@ function Area_function(tbl,func)
       local tbl_t = tbl[a]
       local area_pos_offset = 0
 
-      area_pos_offset = area_pos_offset + (tbl_t.time_start - lowest_start()) --  OFFSET BETWEEN AREAS
+      area_pos_offset = func == "Drag_Paste" and area_pos_offset or area_pos_offset + (tbl_t.time_start - lowest_start()) --  OFFSET BETWEEN AREAS
       local pos_offset = copy and mouse.p or mouse.dp
       local total_pos_offset = area_pos_offset + pos_offset
       local tr_offset = copy and Mouse_tr_offset() or 0
@@ -100,19 +100,13 @@ end
 
 function del_env(env_track, as_start, as_dur, pos_offset, job)
   if reaper.ValidatePtr(env_track, "MediaTrack*") then return end
-  --local min, max, center = env_prop(env_track)
 	local first_env = reaper.GetEnvelopePointByTime(env_track, as_start)
 	local last_env = reaper.GetEnvelopePointByTime(env_track, as_start + as_dur) + 1
 
 	local retval1, time1, value1, shape1, tension1, selected1 = reaper.GetEnvelopePoint(env_track, first_env)
 	local retval2, time2, value2, shape2, tension2, selected2 = reaper.GetEnvelopePoint(env_track, last_env)
 
-	--if value1 == center or value2 == center then
   reaper.DeleteEnvelopePointRange(env_track, as_start, as_start + as_dur)
-  --end
---	else
-	--	insert_edge_points(env_track, as_start, as_start + as_dur, pos_offset, job)
-	--end
 	reaper.Envelope_SortPoints(env_track)
 end
 
@@ -184,10 +178,6 @@ function create_item(tr, data, as_start, as_dur, time_offset, job)
 
     if is_midi then -- MIDI COPIES GET INTO SAME POOL IF JUST SETTING CHUNK SO WE NEED TO SET NEW POOL ID TO NEW COPY
       local chunk = Change_item_guids(item)
-      --local _, chunk = reaper.GetItemStateChunk(item, "")
-      --local pool_guid = string.match(chunk, "POOLEDEVTS {(%S+)}"):gsub("%-", "%%-")
-      --local new_pool_guid = reaper.genGuid():sub(2, -2) -- MIDI ITEM
-      --chunk = string.gsub(chunk, pool_guid, new_pool_guid)
       reaper.SetItemStateChunk(new_Item, chunk, false)
     else -- NORMAL TRACK ITEMS
       filename = reaper.GetMediaSourceFileName(source, "")
@@ -257,10 +247,10 @@ function Move_items_envs(src_tbl, dst_tbl, src_t, dst_t, time_offset)
   reaper.Undo_EndBlock("A51 MOVE", 4)
 end
 
-function get_item_time_in_area(item, as_start, as_end)
+function get_item_time_in_area(item, as_start, as_end, it_start, it_len)
   local tsStart, tsEnd = as_start, as_end
-  local item_lenght = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-  local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
+  local item_lenght = item and reaper.GetMediaItemInfo_Value(item, "D_LENGTH") or it_len
+  local item_start = item and reaper.GetMediaItemInfo_Value(item, "D_POSITION") or it_start
   local item_dur = item_lenght + item_start
 
   if tsStart < item_start and tsEnd > item_start and tsEnd < item_dur then
@@ -292,19 +282,19 @@ function as_item_position(item, as_start, as_dur, time_offset, job)
   if tsStart < item_start and tsEnd > item_start and tsEnd < item_dur then
     ----- IF TS START IS OUT OF ITEM BUT TS END IS IN THEN COPY ONLY PART FROM TS START TO ITEM END
     local new_start, new_item_lenght, offset = (item_start - tsStart) + time_offset, tsEnd - item_start, 0
-    return new_start, new_item_lenght, offset, item
+    return new_start, new_item_lenght, offset
   elseif tsStart < item_dur and tsStart > item_start and tsEnd > item_dur then
     ------ IF START IS IN ITEM AND TS END IS OUTSIDE ITEM COPY PART FROM TS START TO TS END
     local new_start, new_item_lenght, offset = time_offset, item_dur - tsStart, (tsStart - item_start)
-    return new_start, new_item_lenght, offset, item
+    return new_start, new_item_lenght, offset
   elseif tsStart >= item_start and tsEnd <= item_dur then
     ------ IF BOTH TS START AND TS END ARE IN ITEM
     local new_start, new_item_lenght, offset = time_offset, tsEnd - tsStart, (tsStart - item_start)
-    return new_start, new_item_lenght, offset, item
+    return new_start, new_item_lenght, offset
   elseif tsStart <= item_start and tsEnd >= item_dur then -- >= NEW
     ------ IF BOTH TS START AND END ARE OUTSIDE OF THE ITEM
     local new_start, new_item_lenght, offset = (item_start - tsStart) + time_offset, item_lenght, 0
-    return new_start, new_item_lenght, offset, item
+    return new_start, new_item_lenght, offset
   end
 end
 
@@ -329,6 +319,19 @@ function insert_edge_points(env, as_start, as_dur, time_offset, job)
   reaper.InsertEnvelopePoint(env, as_end + time_offset + 0.001, value_et, 0, 0, true, true)
 end
 
+function is_item_in_as(as_start, as_end, item_start, item_end)
+  if (as_start >= item_start and as_start < item_end) and -- IF SELECTION START & END ARE "IN" OR "ON" ITEM (START AND END ARE IN ITEM OR START IS ON ITEM START,END IS ON ITEM END)
+      (as_end <= item_end and as_end > item_start) or
+      (as_start < item_start and as_end > item_end)
+    then -- IF SELECTION START & END ARE OVER ITEM (SEL STARTS BEFORE ITEM END IS AFTER ITEM
+      return true
+    elseif (as_start >= item_start and as_start < item_end) and (as_end >= item_end) then -- IF SEL START IS IN THE ITEM
+      return true
+    elseif (as_end <= item_end and as_end > item_start) and (as_start <= item_start) then -- IF SEL END IS IN THE ITEM
+      return true
+    end
+end
+
 function get_items_in_as(as_tr, as_start, as_end, as_items)
   local as_items = {}
 
@@ -337,7 +340,6 @@ function get_items_in_as(as_tr, as_start, as_end, as_items)
     local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
     local item_len = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
     local item_end = item_start + item_len
-
     if (as_start >= item_start and as_start < item_end) and -- IF SELECTION START & END ARE "IN" OR "ON" ITEM (START AND END ARE IN ITEM OR START IS ON ITEM START,END IS ON ITEM END)
       (as_end <= item_end and as_end > item_start) or
       (as_start < item_start and as_end > item_end)
@@ -397,12 +399,44 @@ function get_as_tr_AI(as_tr, as_start, as_end)
   local as_AI = {}
   for i = 1, reaper.CountAutomationItems(as_tr) do
     local AI_Points = {}
-    local AI = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[2], 0, false) -- GET AI POSITION
-    if AI >= as_start and AI <= as_end then
+
+    local AI_pos = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[2], 0, false) -- AI POSITION
+    local AI_len = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[3], 0, false) -- AI LENGHT
+
+    new_AI_start, new_AI_len = get_item_time_in_area(nil, as_start, as_end, AI_pos, AI_len)
+
+    if is_item_in_as(as_start, as_end, AI_pos, AI_pos+AI_len) then
       as_AI[#as_AI + 1] = {} -- MAKE NEW TABLE FOR AI
       for j = 1, #AI_info do
         as_AI[#as_AI][AI_info[j]] = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[j], 0, false) -- ADD AI INFO TO AI TABLE
       end
+
+      for j = 1, reaper.CountEnvelopePointsEx( as_tr, i-1) do
+
+        local retval, time, value, shape, tension, selected = reaper.GetEnvelopePointEx( as_tr, i-1, j)
+
+        if time >= new_AI_start and time <= new_AI_start + new_AI_len then
+            AI_Points[#AI_Points + 1] = {
+              id = i - 1,
+              retval = retval,
+              time = time,
+              value = value,
+              shape = shape,
+              tension = tension,
+              selected = true
+            }
+        end
+      end
+      as_AI[#as_AI].points = AI_Points
+    end
+
+    
+    --if AI >= as_start and AI <= as_end then
+     -- as_AI[#as_AI + 1] = {} -- MAKE NEW TABLE FOR AI
+     -- for j = 1, #AI_info do
+     --   as_AI[#as_AI][AI_info[j]] = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[j], 0, false) -- ADD AI INFO TO AI TABLE
+     -- end
+     --[[
       for j = 1,reaper.CountEnvelopePointsEx( as_tr, i-1) do
         local retval, time, value, shape, tension, selected = reaper.GetEnvelopePointEx( as_tr, i-1, j)
         AI_Points[#AI_Points + 1] = {
@@ -417,6 +451,7 @@ function get_as_tr_AI(as_tr, as_start, as_end)
       end
       as_AI[#as_AI].points = AI_Points
     end
+  ]]
   end
   return #as_AI ~= 0 and as_AI
 end

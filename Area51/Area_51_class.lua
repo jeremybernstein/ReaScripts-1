@@ -8,9 +8,6 @@ local ZONE_BUFFER
 local split, drag_copy
 local CUR_AREA_ZONE
 
-function Color()
-end
-
 function DeepCopy(original)
   local copy = {}
   for k, v in pairs(original) do
@@ -84,7 +81,6 @@ function Element:update_zone(z)
       end
       Ghost_unlink_or_destroy({self}, "Unlink")
     end
-    --create_undo(z, z[1])
     ZONE_BUFFER = nil
     split, drag_copy = nil, nil
 
@@ -227,7 +223,7 @@ function Element:track()
   if self:mouseClick() then
     ZONE_BUFFER = self:mouseZONE()
     ZONE_BUFFER.guid = self.guid
-    if ZONE_BUFFER[1] == "C" then ZONE_BUFFER[5] = DeepCopy(self) end
+    if ZONE_BUFFER[1] == "C" then ZONE_BUFFER[5] = DeepCopy(self, self) end-- DeepCopy(self) end
     if mouse.Ctrl() then drag_copy = true end
   end
 
