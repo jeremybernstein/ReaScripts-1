@@ -5,8 +5,7 @@ Most of the functionality is implemented.
 
 Missing:
 1. Undo System
-2. Missing Native ICONS
-3. Automation Items
+2. Automation Items
 
 Working on OSX - Drawing mode needs to be set to "FORCE CLASSIC MODE"
 ----------------------------------------------------------------------
