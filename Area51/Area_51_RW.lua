@@ -741,6 +741,7 @@ end
 
 function Exit() -- DESTROY ALL BITMAPS ON REAPER EXIT
    reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
+   reaper.JS_WindowMessage_Release(track_window, "WM_SETCURSOR")
    Release_reaper_keys()
    --Ghost_unlink_or_destroy(Areas_TB, "Delete")
    RemoveAsFromTable(Areas_TB, "Delete", "~=")
