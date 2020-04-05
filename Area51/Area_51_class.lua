@@ -183,7 +183,7 @@ function Element:zoneIN(sx, sy)
 
   if x > (self.x + range2) and x < (self.x + self.w - range2) then
     if y > self.y + range2 and y < (self.y + self.h) - range2 then
-      return {"C", self.time_start, self.time_dur, self.y, DeepCopy(self)} --DeepCopy(self.sel_info)
+      return {"C", self.time_start, self.time_dur, self.y}
     end
   end
 end
@@ -216,7 +216,7 @@ function Element:mouseM_Down()
   --return m_state&64==64 and self:pointIN(mouse_ox, mouse_oy)
 end
 --------
-
+--function track_element(tbl)
 function Element:track()
   local active_as = Get_area_table("Active")
   if CREATING or WINDOW_IN_FRONT then
@@ -227,6 +227,7 @@ function Element:track()
   if self:mouseClick() then
     ZONE_BUFFER = self:mouseZONE()
     ZONE_BUFFER.guid = self.guid
+    if ZONE_BUFFER[1] == "C" then ZONE_BUFFER[5] = DeepCopy(self) end
     if mouse.Ctrl() then drag_copy = true end
   end
 
@@ -257,6 +258,7 @@ Extended(Ghosts, Element)
 function Track(tbl)
   for _, area in pairs(tbl) do
     area:track()
+    --track_element(area)
   end
   for i = 1, #tbl do
     if tbl[i]:mouseIN() then
