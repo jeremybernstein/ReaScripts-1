@@ -6,9 +6,8 @@ Missing:
 2. Missing Native ICONS
 3. Automation Items
 
-Still work in progress, and some code needs to be cleaned up.
 Working on OSX - Drawing mode needs to be set to "FORCE CLASSIC MODE"
-------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------
 CTRL (CMD) + SHIFT + DRAG --> Make SINGLE AREA
 CTRL (CMD) + SHIFT + ALT + DRAG --> Non-Contiguous Area Selections (MULTIPLE)
 1,2,3,4 etc --> ACTIVATE SINGLE AREA FROM MULTIPLE ONES WHILE IN COPY MODE
@@ -22,6 +21,7 @@ Delete --> Delete/cut
 CTRL (CMD) + DRAG --> Drag COPY
 
 ESC --> Clear everything
+
 -------------------------------------------------------------------------------------------------------
 Area resizing --> Click and drag over the edges of the area to extend or in center to move area
 
