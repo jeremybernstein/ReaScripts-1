@@ -30,6 +30,8 @@ CTRL (CMD) + DRAG --> Drag COPY
 
 ESC --> Clear everything
 
+CRTL (CMD) + SHIFT + CLICK IN ARRANGE -->>Clear everything
+
 
 Area resizing --> Click and drag over the edges of the area to extend or in center to move area
 --
