@@ -262,8 +262,10 @@ function Move_items_envs(src_tbl, dst_tbl, src_t, dst_t, time_offset)
       end
     end
   end
+  --insert_edge_points(dst_tbl[j].track, dst_t[1], dst_t[2], time_offset)
   for j = 1, #dst_tbl do
     if reaper.ValidatePtr(src_tbl[j].track, "TrackEnvelope*") and reaper.ValidatePtr(dst_tbl[j].track, "TrackEnvelope*") then
+      insert_edge_points(dst_tbl[j].track, dst_t[1], dst_t[2], 0)
       reaper.DeleteEnvelopePointRange(src_tbl[j].track, src_t[1], src_t[1] + src_t[2])
       reaper.DeleteEnvelopePointRange(dst_tbl[j].track, dst_t[1], dst_t[1] + dst_t[2])
     end
@@ -352,6 +354,7 @@ function insert_edge_points(env, as_start, as_dur, time_offset)
   reaper.InsertEnvelopePoint(env, as_start + time_offset - 0.001, value_st, 0, 0, true, true)
   local retval, value_et, dVdS, ddVdS, dddVdS = reaper.Envelope_Evaluate(env, as_end + time_offset, 0, 0) -- DESTINATION END POINT
   reaper.InsertEnvelopePoint(env, as_end + time_offset + 0.001, value_et, 0, 0, true, true)
+  reaper.Envelope_SortPoints( env )
 end
 
 function is_item_in_as(as_start, as_end, item_start, item_end)
