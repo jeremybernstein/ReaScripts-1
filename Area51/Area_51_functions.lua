@@ -2,41 +2,52 @@ local refresh_tracks, update, update_all
 
 function Delete(tr, src_tr, data, t_start, t_dur, t_offset, job)
 	if not data then return end
-	split_or_delete_items(tr, data, t_start, t_dur, job)
-	del_env(tr, t_start, t_dur, t_offset, job)
+	split_or_delete_items(data, t_start, t_dur, job)
+	del_env(tr, t_start, t_dur, 0)
 	update_all = true
 end
 
 function Split(tr, src_tr, data, t_start, t_dur, t_offset, job)
 	if not data then return end
-	split_or_delete_items(tr, data, t_start, t_dur, job)
+	split_or_delete_items(data, t_start, t_dur, job)
 	update_all = true
 end
 
 function Paste(tr, src_tr, data, t_start, t_dur, t_offset, job)
   if not data then return end
-  create_item(tr, data, t_start, t_dur, t_offset, job)
-  paste_env(tr, src_tr, data, t_start, t_dur, t_offset, job)
+  ---------------------------
+  local item_offset = t_offset
+  local env_offset = t_offset - t_start
+  create_item(tr, data, t_start, t_dur, item_offset, job)
+  paste_env(tr, src_tr, data, t_start, t_dur, env_offset, job)
+  --Paste_AI(tr, src_tr, data, t_start ,t_offset, job)
   refresh_tracks = true
 end
 
 function Duplicate(tr, src_tr, data, t_start, t_dur, t_offset, job)
   if not data then return end
-  create_item(tr, data, t_start, t_dur, t_offset, job)
-  paste_env(tr, src_tr, data, t_start, t_dur, t_offset, job)
+  local item_offset = t_start + t_dur
+  local env_offset = t_dur
+  create_item(tr, data, t_start, t_dur, item_offset, job)
+  paste_env(tr, src_tr, data, t_start, t_dur, env_offset, job)
   update = true
 end
-
-function Move(tr, src_tr, data, t_start, t_dur, t_offset, job)
+---------------------------------------------------------------
+-------------------DRAGGING FUNCTIONS--------------------------
+function Split_for_move(tr, src_tr, data, t_start, t_dur, t_offset, job)
   if not data then return end
-  split_or_delete_items(tr, data, t_start, t_dur, job)
+  split_or_delete_items(data, t_start, t_dur, job)
   update_all = true
 end
 
 function Drag_Paste(tr, src_tr, data, t_start, t_dur, t_offset, job)
+  -- WE DO NOT USE HERE "t_offset" SINCE WE ARE MOVING SINGLE AREA AND NOT IN COPY MODE, OFFSET INCLUDES DELTA BETWEEN AREAS COMBINED WITH MOUSE.P WHICH IS USED WHEN IN COPY MODE
   if not data then return end
-  create_item(tr, data, t_start, t_dur, t_offset, job)
-  paste_env(tr, src_tr, data, t_start, t_dur, t_offset, job)
+  local org_start_time = t_start - mouse.dp  -- DRAGING ITEMS UPDATE TABLE VALUES, BUT ITEM FUNCTION BELOW IS LOOKING FOR ITEMS AT ORIGINAL LOCATION WE NEED TO SUBTRACT DRAG OFFSET WITH FINAL POSITION TO GET ORIGINAL
+  local item_offset = t_start                 -- THIS IS FINAL UPDATED POSITION OF AREA WHERE ITEMS WILL PASTE
+  local env_offset = mouse.dp
+  create_item(tr, data, org_start_time, t_dur, item_offset, job)
+  paste_env(tr, src_tr, data, org_start_time, t_dur, env_offset, job)
 end
 
 function Area_function(tbl,func)
@@ -47,9 +58,8 @@ function Area_function(tbl,func)
       local tbl_t = tbl[a]
       local area_pos_offset = 0
 
-      area_pos_offset = func == "Drag_Paste" and area_pos_offset or area_pos_offset + (tbl_t.time_start - lowest_start()) --  OFFSET BETWEEN AREAS
-      local pos_offset = copy and mouse.p or mouse.dp
-      local total_pos_offset = area_pos_offset + pos_offset
+      area_pos_offset = area_pos_offset + (tbl_t.time_start - lowest_start()) --  OFFSET BETWEEN AREAS
+      local total_pos_offset = mouse.p + area_pos_offset
       local tr_offset = copy and Mouse_tr_offset() or 0
 
       for i = 1, #tbl_t.sel_info do	-- LOOP THRU AREA DATA
@@ -66,8 +76,10 @@ function Area_function(tbl,func)
 
         if sel_info_t.items then	-- ITEMS
           _G[func](off_tr, target_track, sel_info_t.items, tbl_t.time_start, tbl_t.time_dur, total_pos_offset, func)
-        elseif sel_info_t.env_name then -- ENVELOPES
+        elseif sel_info_t.env_name and not sel_info_t.AI then -- ENVELOPES
           _G[func](off_tr, target_track, sel_info_t.env_points, tbl_t.time_start, tbl_t.time_dur, total_pos_offset, func)
+        elseif sel_info_t.env_name and sel_info_t.AI then -- ENVELOPES
+          _G[func](off_tr, target_track, sel_info_t.AI, tbl_t.time_start, tbl_t.time_dur, total_pos_offset, func)
         end
       end
 
@@ -98,7 +110,44 @@ function Area_function(tbl,func)
     reaper.UpdateArrange()
 end
 
-function del_env(env_track, as_start, as_dur, pos_offset, job)
+function Drag_Paste_test(src_tbl, as_start, as_end, time_offset)
+  reaper.Undo_BeginBlock()
+  reaper.PreventUIRefresh(1)
+  for i = 1, #src_tbl do
+    local tr = src_tbl[i].track
+      if src_tbl[i].items then
+        create_item(tr, src_tbl[i].items, as_start, as_end, time_offset)
+      elseif src_tbl[i].env_points then
+        paste_env(tr, nil, src_tbl[i].env_points, as_start, as_end, time_offset)
+      end
+  end
+  reaper.Undo_EndBlock("A51 " .. "DRAG_PASTE", 4)
+  reaper.PreventUIRefresh(-1)
+end
+
+function Split_test(data, as_start, as_end, job)
+  for i = 1, #data do
+    local tr = data[i].track
+    if data[i].items then
+      split_or_delete_items(data[i].items, as_start, as_end, job)
+    end
+  end
+end
+
+function Paste_AI(tr, src_tr, data, t_start, t_offset, job)  
+  for i = 1, #data do
+    local off_test = data[i].D_POSITION - t_start
+    local Aidx = reaper.InsertAutomationItem( tr, -1, off_test + t_offset, data[i].D_LENGTH)
+    local AI_pos = reaper.GetSetAutomationItemInfo(tr, i - 1, "D_POSITION", 0, false) -- AI POSITION
+    for j = 1, #data[i].points do
+      local ai_point = data[i].points[j]
+      reaper.InsertEnvelopePointEx( tr, Aidx, ai_point.time + AI_pos, ai_point.value, ai_point.shape, ai_point.tension, ai_point.selected, true )
+    end
+    reaper.Envelope_SortPointsEx( tr, i )
+  end
+end
+
+function del_env(env_track, as_start, as_dur, offset)
   if reaper.ValidatePtr(env_track, "MediaTrack*") then return end
 	local first_env = reaper.GetEnvelopePointByTime(env_track, as_start)
 	local last_env = reaper.GetEnvelopePointByTime(env_track, as_start + as_dur) + 1
@@ -106,15 +155,15 @@ function del_env(env_track, as_start, as_dur, pos_offset, job)
 	local retval1, time1, value1, shape1, tension1, selected1 = reaper.GetEnvelopePoint(env_track, first_env)
 	local retval2, time2, value2, shape2, tension2, selected2 = reaper.GetEnvelopePoint(env_track, last_env)
 
-  reaper.DeleteEnvelopePointRange(env_track, as_start, as_start + as_dur)
+  reaper.DeleteEnvelopePointRange(env_track, as_start + offset, as_start + as_dur + offset)
 	reaper.Envelope_SortPoints(env_track)
 end
 
-function split_or_delete_items(as_tr, as_items_tbl, as_start, as_dur, job)
+function split_or_delete_items(as_items_tbl, as_start, as_dur, job)
 	if not reaper.ValidatePtr( as_items_tbl[1], "MediaItem*") then return end
 	for i = #as_items_tbl, 1, -1 do
 		local item = as_items_tbl[i]
-		if job == "Delete" or job == "Split" or job == "Move" then
+		if job == "Delete" or job == "Split" or job == "Split_for_move" then
 		local s_item_first = reaper.SplitMediaItem(item, as_start + as_dur)
 		local s_item_last = reaper.SplitMediaItem(item, as_start)
 		if job == "Delete" then
@@ -134,16 +183,14 @@ end
 
 function paste_env(tr, env_name, env_data, as_start, as_dur, time_offset, job)
   if reaper.ValidatePtr( env_data[1], "MediaItem*") then return end
-  local t_off = time_offset
-  local env_paste_offset = job == "Duplicate" and as_dur or t_off - as_start -- OFFSET BETWEEN ENVELOPE START AND MOUSE POSITION
-  env_paste_offset = job == "Drag_Paste" and t_off or env_paste_offset
   if tr and reaper.ValidatePtr(tr, "TrackEnvelope*") then -- IF TRACK HAS ENVELOPES PASTE THEM
-    insert_edge_points(tr, as_start, as_dur, env_paste_offset, job) -- INSERT EDGE POINTS AT CURRENT ENVELOE VALUE AND DELETE WHOLE RANGE INSIDE (DO NOT ALLOW MIXING ENVELOPE POINTS AND THAT WEIRD SHIT)
+    insert_edge_points(tr, as_start, as_dur, time_offset, job) -- INSERT EDGE POINTS AT CURRENT ENVELOE VALUE AND DELETE WHOLE RANGE INSIDE (DO NOT ALLOW MIXING ENVELOPE POINTS AND THAT WEIRD SHIT)
+    del_env(tr, as_start, as_dur, time_offset)
     for i = 1, #env_data do
       local env = env_data[i]
       reaper.InsertEnvelopePoint(
         tr,
-        env.time +  env_paste_offset,
+        env.time +  time_offset,
         env.value,
         env.shape,
         env.tension,
@@ -153,21 +200,17 @@ function paste_env(tr, env_name, env_data, as_start, as_dur, time_offset, job)
     end
     reaper.Envelope_SortPoints(tr)
   elseif tr and reaper.ValidatePtr(tr, "MediaTrack*") and not MODE then
-    get_set_envelope_chunk(tr, env_name, as_start, as_start + as_dur, env_paste_offset)
+    get_set_envelope_chunk(tr, env_name, as_start, as_start + as_dur, time_offset)
   end
 end
 
 function create_item(tr, data, as_start, as_dur, time_offset, job)
   if not reaper.ValidatePtr( data[1], "MediaItem*") or tr == reaper.GetMasterTrack(0) then return end -- do not allow envelope data here, and do not allow pasting items on master track
-  local time_offset = job == "Duplicate" and as_start + as_dur or time_offset
-
-  if job == "Drag_Paste" then
-    as_start = as_start - time_offset
-    time_offset = as_start + time_offset
-  end
-
   for i = 1, #data do
     local item = data[i]
+    local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
+    local item_lenght = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
+
     local filename, clonedsource
     local take = reaper.GetMediaItemTake(item, 0)
     local source = reaper.GetMediaItemTake_Source(take)
@@ -184,7 +227,7 @@ function create_item(tr, data, as_start, as_dur, time_offset, job)
       clonedsource = reaper.PCM_Source_CreateFromFile(filename)
     end
 
-    local new_item_start, new_item_lenght, offset = as_item_position(item, as_start, as_dur, time_offset)
+    local new_item_start, new_item_lenght, offset = Offset_items_positions_and_start_offset(as_start, as_dur, item_start, item_lenght, time_offset)
     reaper.SetMediaItemInfo_Value(new_Item, "D_POSITION", new_item_start)
     reaper.SetMediaItemInfo_Value(new_Item, "D_LENGTH", new_item_lenght)
     local newTakeOffset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
@@ -247,10 +290,8 @@ function Move_items_envs(src_tbl, dst_tbl, src_t, dst_t, time_offset)
   reaper.Undo_EndBlock("A51 MOVE", 4)
 end
 
-function get_item_time_in_area(item, as_start, as_end, it_start, it_len)
+function New_items_position_in_area(as_start, as_end, item_start, item_lenght)
   local tsStart, tsEnd = as_start, as_end
-  local item_lenght = item and reaper.GetMediaItemInfo_Value(item, "D_LENGTH") or it_len
-  local item_start = item and reaper.GetMediaItemInfo_Value(item, "D_POSITION") or it_start
   local item_dur = item_lenght + item_start
 
   if tsStart < item_start and tsEnd > item_start and tsEnd < item_dur then
@@ -272,10 +313,8 @@ function get_item_time_in_area(item, as_start, as_end, it_start, it_len)
   end
 end
 
-function as_item_position(item, as_start, as_dur, time_offset, job)
+function Offset_items_positions_and_start_offset(as_start, as_dur, item_start, item_lenght, time_offset)
   local tsStart, tsEnd = as_start, as_start + as_dur
-  local item_lenght = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-  local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
   local item_dur = item_lenght + item_start
 
   local new_start, new_item_lenght, offset
@@ -305,12 +344,8 @@ function env_prop(env)
   return minValue, maxValue, centerValue
 end
 
---insert_edge_points(env_track, as_start, as_end, 0, nil, job)
-function insert_edge_points(env, as_start, as_dur, time_offset, job)
-  if not reaper.ValidatePtr(env, "TrackEnvelope*") then
-    return
-  end -- DO NOT ALLOW MEDIA TRACK HERE
-  time_offset = job == "Drag_Paste" and 0 or time_offset
+function insert_edge_points(env, as_start, as_dur, time_offset)
+  if not reaper.ValidatePtr(env, "TrackEnvelope*") then return end -- DO NOT ALLOW MEDIA TRACK HERE
   local edge_pts = {}
   local as_end = as_start + as_dur
   local retval, value_st, dVdS, ddVdS, dddVdS = reaper.Envelope_Evaluate(env, as_start + time_offset, 0, 0) -- DESTINATION START POINT
@@ -352,7 +387,7 @@ function get_items_in_as(as_tr, as_start, as_end, as_items)
     end
   end
 
-  return #as_items ~= 0 and as_items
+  return #as_items ~= 0 and as_items or nil
 end
 
 function get_as_tr_env_pts(as_tr, as_start, as_end)
@@ -379,7 +414,7 @@ function get_as_tr_env_pts(as_tr, as_start, as_end)
     end
   end
 
-  return #env_points ~= 0 and env_points
+  return #env_points ~= 0 and env_points or nil
 end
 
 local AI_info = {
@@ -397,24 +432,28 @@ local AI_info = {
 
 function get_as_tr_AI(as_tr, as_start, as_end)
   local as_AI = {}
+  if reaper.CountAutomationItems(as_tr) == 0 then return end
   for i = 1, reaper.CountAutomationItems(as_tr) do
     local AI_Points = {}
 
     local AI_pos = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[2], 0, false) -- AI POSITION
     local AI_len = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[3], 0, false) -- AI LENGHT
 
-    new_AI_start, new_AI_len = get_item_time_in_area(nil, as_start, as_end, AI_pos, AI_len)
-
-    if is_item_in_as(as_start, as_end, AI_pos, AI_pos+AI_len) then
+    if is_item_in_as(as_start, as_end, AI_pos, AI_pos + AI_len) then -- IF AI IS IN AREA
+      local new_AI_start, new_AI_len = New_items_position_in_area(as_start, as_end, AI_pos, AI_len) -- GET/TRIM AI START/LENGTH IF NEEDED (DEPENDING ON AI POSITION IN AREA)
       as_AI[#as_AI + 1] = {} -- MAKE NEW TABLE FOR AI
       for j = 1, #AI_info do
-        as_AI[#as_AI][AI_info[j]] = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[j], 0, false) -- ADD AI INFO TO AI TABLE
+        if j == 2 then
+          as_AI[#as_AI][AI_info[j]] = new_AI_start
+        elseif j == 3 then
+          as_AI[#as_AI][AI_info[j]] = new_AI_len
+        else
+          as_AI[#as_AI][AI_info[j]] = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[j], 0, false) -- ADD AI INFO TO AI TABLE
+        end
       end
 
-      for j = 1, reaper.CountEnvelopePointsEx( as_tr, i-1) do
-
+      for j = 0, reaper.CountEnvelopePointsEx( as_tr, i-1) do
         local retval, time, value, shape, tension, selected = reaper.GetEnvelopePointEx( as_tr, i-1, j)
-
         if time >= new_AI_start and time <= new_AI_start + new_AI_len then
             AI_Points[#AI_Points + 1] = {
               id = i - 1,
@@ -426,34 +465,11 @@ function get_as_tr_AI(as_tr, as_start, as_end)
               selected = true
             }
         end
+        as_AI[#as_AI].points = AI_Points
       end
-      as_AI[#as_AI].points = AI_Points
     end
-
-    
-    --if AI >= as_start and AI <= as_end then
-     -- as_AI[#as_AI + 1] = {} -- MAKE NEW TABLE FOR AI
-     -- for j = 1, #AI_info do
-     --   as_AI[#as_AI][AI_info[j]] = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[j], 0, false) -- ADD AI INFO TO AI TABLE
-     -- end
-     --[[
-      for j = 1,reaper.CountEnvelopePointsEx( as_tr, i-1) do
-        local retval, time, value, shape, tension, selected = reaper.GetEnvelopePointEx( as_tr, i-1, j)
-        AI_Points[#AI_Points + 1] = {
-          id = i - 1,
-          retval = retval,
-          time = time,
-          value = value,
-          shape = shape,
-          tension = tension,
-          selected = true
-        }
-      end
-      as_AI[#as_AI].points = AI_Points
-    end
-  ]]
   end
-  return #as_AI ~= 0 and as_AI
+  return #as_AI ~= 0 and as_AI or nil
 end
 
 -- SPLIT CHUNK TO LLINES

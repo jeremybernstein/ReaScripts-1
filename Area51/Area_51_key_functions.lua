@@ -6,6 +6,7 @@ function Remove()
   --Ghost_unlink_or_destroy(tbl, "Delete")
   RemoveAsFromTable(tbl, "Delete", "~=")
   BLOCK = nil
+  Change_cursor()
   Set_active_as(nil)
   Refresh_reaper()
 end

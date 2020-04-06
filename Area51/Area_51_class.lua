@@ -49,7 +49,7 @@ function Element:update_zone(z)
       self.time_dur = self.time_dur >= 0 and self.time_dur or 0
     elseif z[1] == "C" then
         if (mouse.dp ~= 0 or mouse.tr ~= mouse.last_tr) and not drag_copy then
-          if not split then Area_function({z[5]}, "Move") split = true end
+          if not split then Area_function({z[5]}, "Split_for_move") split = true end --if not split then Split_test(z[5].sel_info, z[2], z[3], "Split") split = true update_all_area_data() end
         end
         local new_L = z[2] + mouse.dp >= 0 and z[2] + mouse.dp or 0
         self.time_start = new_L
@@ -78,6 +78,8 @@ function Element:update_zone(z)
         Move_items_envs(z[5].sel_info, self.sel_info, {z[2], z[3]}, {self.time_start,self.time_dur}, self.time_start - z[2])
       else
         Area_function({self}, "Drag_Paste")
+        --Drag_Paste_test(self.sel_info, z[2], z[3], self.time_start)
+        --Area_function({z[5]}, "Drag_Paste")
       end
       Ghost_unlink_or_destroy({self}, "Delete")
     end
@@ -223,7 +225,7 @@ function Element:track()
   if self:mouseClick() then
     ZONE_BUFFER = self:mouseZONE()
     ZONE_BUFFER.guid = self.guid
-    if ZONE_BUFFER[1] == "C" then ZONE_BUFFER[5] = DeepCopy(self, self) end-- DeepCopy(self) end
+    if ZONE_BUFFER[1] == "C" then ZONE_BUFFER[5] = DeepCopy(self) end-- DeepCopy(self) end
     if mouse.Ctrl() then drag_copy = true end
   end
 
