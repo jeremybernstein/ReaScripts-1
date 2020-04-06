@@ -1,4 +1,5 @@
 local refresh_tracks, update, update_all
+--local AI_info
 
 function Delete(tr, src_tr, data, t_start, t_dur, t_offset, job)
 	if not data then return end
@@ -134,16 +135,53 @@ function Split_test(data, as_start, as_end, job)
   end
 end
 
-function Paste_AI(tr, src_tr, data, t_start, t_offset, job)  
+local AI_info = {
+  "D_POOL_ID",
+  "D_POSITION",
+  "D_LENGTH",
+  "D_STARTOFFS",
+  "D_PLAYRATE",
+  "D_BASELINE",
+  "D_AMPLITUDE",
+  "D_LOOPSRC",
+  "D_UISEL",
+  "D_POOL_QNLEN"
+}
+--A = 0
+function Paste_AI(tr, src_tr, data, t_start, t_offset, job)
+  --AAA = data
   for i = 1, #data do
-    local AI_offset = data[i].D_POSITION - t_start
-    local Aidx = reaper.InsertAutomationItem( tr, -1, AI_offset + t_offset, data[i].D_LENGTH)
-    local AI_pos = reaper.GetSetAutomationItemInfo(tr, i - 1, "D_POSITION", 0, false) -- AI POSITION
-    for j = 1, #data[i].points do
-      local ai_point = data[i].points[j]
-      reaper.InsertEnvelopePointEx( tr, Aidx, ai_point.time + t_offset, ai_point.value, ai_point.shape, ai_point.tension, ai_point.selected, true )
+    --AAI_offset = data[i].info["D_POSITION"] - t_start
+    local AI_offset = data[i].info["D_POSITION"] - t_start
+    local Aidx = reaper.InsertAutomationItem( tr, -1, AI_offset + t_offset, data[i].info["D_LENGTH"])
+    --local AI_pos = reaper.GetSetAutomationItemInfo(tr, i - 1, "D_POSITION", 0, false) -- AI POSITION
+    --AAA = data[i].info
+    for k,v in pairs(data[i].info) do
+      if k ~= "D_POSITION" then
+      reaper.GetSetAutomationItemInfo(tr, Aidx, k, v, true)
+      end
     end
-    reaper.Envelope_SortPointsEx( tr, i )
+    --reaper.GetSetAutomationItemInfo(tr, Aidx, "D_POOL_ID", 10, true)
+    A1, A2 = reaper.GetSetAutomationItemInfo_String(tr, Aidx, "P_POOL_NAME", "1", true )
+    A3, A4 = reaper.GetSetAutomationItemInfo_String(tr, Aidx, "P_POOL_EXT", "", false )
+    --reaper.GetSetAutomationItemInfo(tr, Aidx, "D_POOL_ID", 5, true)
+    --reaper.GetSetAutomationItemInfo(tr, Aidx, "D_UISEL", 1, true)
+    --reaper.Main_OnCommand(42084, 0)
+    --reaper.GetSetAutomationItemInfo(tr, Aidx, "D_LOOPSRC", 0, true)
+    --reaper.GetSetAutomationItemInfo(tr, Aidx, "D_STARTOFFS", 0, true)
+
+
+    --for j = 1, #data[i].info do
+      --A = A + 1
+      --AAA = data[i].info[AI_info[j]]
+     ---reaper.GetSetAutomationItemInfo(tr, i - 1, data[i].info[j], 0, true) -- AI POSITION
+    --end
+
+    --for j = 1, #data[i].points do
+      --local ai_point = data[i].points[j]
+       -- reaper.InsertEnvelopePointEx( tr, Aidx, ai_point.time + AI_pos + , ai_point.value, ai_point.shape, ai_point.tension, ai_point.selected, true )
+    --end
+    --reaper.Envelope_SortPointsEx( tr, i )
   end
 end
 
@@ -213,30 +251,15 @@ function create_item(tr, data, as_start, as_dur, time_offset, job)
 
     local filename, clonedsource
     local take = reaper.GetMediaItemTake(item, 0)
-    local source = reaper.GetMediaItemTake_Source(take)
-    local is_midi = reaper.TakeIsMIDI(take)
     local item_volume = reaper.GetMediaItemInfo_Value(item, "D_VOL")
     local new_Item = reaper.AddMediaItemToTrack(tr)
-    local new_Take = reaper.AddTakeToMediaItem(new_Item)
 
-    if is_midi then -- MIDI COPIES GET INTO SAME POOL IF JUST SETTING CHUNK SO WE NEED TO SET NEW POOL ID TO NEW COPY
-      local chunk = Change_item_guids(item)
-      reaper.SetItemStateChunk(new_Item, chunk, false)
-    else -- NORMAL TRACK ITEMS
-      filename = reaper.GetMediaSourceFileName(source, "")
-      clonedsource = reaper.PCM_Source_CreateFromFile(filename)
-    end
+    local chunk = Change_item_guids(item)
+    reaper.SetItemStateChunk(new_Item, chunk, false)
 
     local new_item_start, new_item_lenght, offset = Offset_items_positions_and_start_offset(as_start, as_dur, item_start, item_lenght, time_offset)
     reaper.SetMediaItemInfo_Value(new_Item, "D_POSITION", new_item_start)
     reaper.SetMediaItemInfo_Value(new_Item, "D_LENGTH", new_item_lenght)
-    local newTakeOffset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
-    reaper.SetMediaItemTakeInfo_Value(new_Take, "D_STARTOFFS", newTakeOffset + offset)
-
-    if not is_midi then
-      reaper.SetMediaItemTake_Source(new_Take, clonedsource)
-    end
-
     reaper.SetMediaItemInfo_Value(new_Item, "D_VOL", item_volume)
   end
 end
@@ -419,19 +442,6 @@ function get_as_tr_env_pts(as_tr, as_start, as_end)
   return #env_points ~= 0 and env_points or nil
 end
 
-local AI_info = {
-  "D_POOL_ID",
-  "D_POSITION",
-  "D_LENGTH",
-  "D_STARTOFFS",
-  "D_PLAYRATE",
-  "D_BASELINE",
-  "D_AMPLITUDE",
-  "D_LOOPSRC",
-  "D_UISEL",
-  "D_POOL_QNLEN"
-}
-
 function get_as_tr_AI(as_tr, as_start, as_end)
   local as_AI = {}
   if reaper.CountAutomationItems(as_tr) == 0 then return end
@@ -442,21 +452,23 @@ function get_as_tr_AI(as_tr, as_start, as_end)
     local AI_len = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[3], 0, false) -- AI LENGHT
 
     if is_item_in_as(as_start, as_end, AI_pos, AI_pos + AI_len) then -- IF AI IS IN AREA
-      local new_AI_start, new_AI_len = New_items_position_in_area(as_start, as_end, AI_pos, AI_len) -- GET/TRIM AI START/LENGTH IF NEEDED (DEPENDING ON AI POSITION IN AREA)
+      --local new_AI_start, new_AI_len = New_items_position_in_area(as_start, as_end, AI_pos, AI_len) -- GET/TRIM AI START/LENGTH IF NEEDED (DEPENDING ON AI POSITION IN AREA)
       as_AI[#as_AI + 1] = {} -- MAKE NEW TABLE FOR AI
+      as_AI[#as_AI].info = {}
       for j = 1, #AI_info do
-        if j == 2 then
-          as_AI[#as_AI][AI_info[j]] = new_AI_start
-        elseif j == 3 then
-          as_AI[#as_AI][AI_info[j]] = new_AI_len
-        else
-          as_AI[#as_AI][AI_info[j]] = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[j], 0, false) -- ADD AI INFO TO AI TABLE
-        end
+        --if j == 2 then
+        --  as_AI[#as_AI][AI_info[j]] = new_AI_start
+        --elseif j == 3 then
+        --  as_AI[#as_AI][AI_info[j]] = new_AI_len
+        --else
+        A1, A2 = reaper.GetSetAutomationItemInfo_String(as_tr, i - 1, "P_POOL_NAME", "", false )
+        A3, A4 = reaper.GetSetAutomationItemInfo_String(as_tr, i - 1, "P_POOL_EXT:xyz", "", false )
+        as_AI[#as_AI].info[AI_info[j]] = reaper.GetSetAutomationItemInfo(as_tr, i - 1, AI_info[j], 0, false) -- ADD AI INFO TO AI TABLE
+       -- end
       end
-
       for j = 0, reaper.CountEnvelopePointsEx( as_tr, i-1) do
         local retval, time, value, shape, tension, selected = reaper.GetEnvelopePointEx( as_tr, i-1, j)
-        if time >= new_AI_start and time <= new_AI_start + new_AI_len then
+        if time >= as_start and time <= as_end then
             AI_Points[#AI_Points + 1] = {
               id = i - 1,
               retval = retval,
