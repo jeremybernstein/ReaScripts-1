@@ -15,12 +15,12 @@ end
 
 function Paste(tr, src_tr, data, t_start, t_dur, t_offset, job)
   if not data then return end
-  ---------------------------
   local item_offset = t_offset
   local env_offset = t_offset - t_start
+  local AI_offset = t_offset
   create_item(tr, data, t_start, t_dur, item_offset, job)
   paste_env(tr, src_tr, data, t_start, t_dur, env_offset, job)
-  --Paste_AI(tr, src_tr, data, t_start ,t_offset, job)
+  --Paste_AI(tr, src_tr, data, t_start ,AI_offset, job)
   refresh_tracks = true
 end
 
@@ -136,12 +136,12 @@ end
 
 function Paste_AI(tr, src_tr, data, t_start, t_offset, job)  
   for i = 1, #data do
-    local off_test = data[i].D_POSITION - t_start
-    local Aidx = reaper.InsertAutomationItem( tr, -1, off_test + t_offset, data[i].D_LENGTH)
+    local AI_offset = data[i].D_POSITION - t_start
+    local Aidx = reaper.InsertAutomationItem( tr, -1, AI_offset + t_offset, data[i].D_LENGTH)
     local AI_pos = reaper.GetSetAutomationItemInfo(tr, i - 1, "D_POSITION", 0, false) -- AI POSITION
     for j = 1, #data[i].points do
       local ai_point = data[i].points[j]
-      reaper.InsertEnvelopePointEx( tr, Aidx, ai_point.time + AI_pos, ai_point.value, ai_point.shape, ai_point.tension, ai_point.selected, true )
+      reaper.InsertEnvelopePointEx( tr, Aidx, ai_point.time + t_offset, ai_point.value, ai_point.shape, ai_point.tension, ai_point.selected, true )
     end
     reaper.Envelope_SortPointsEx( tr, i )
   end
@@ -262,7 +262,6 @@ function Move_items_envs(src_tbl, dst_tbl, src_t, dst_t, time_offset)
       end
     end
   end
-  --insert_edge_points(dst_tbl[j].track, dst_t[1], dst_t[2], time_offset)
   for j = 1, #dst_tbl do
     if reaper.ValidatePtr(src_tbl[j].track, "TrackEnvelope*") and reaper.ValidatePtr(dst_tbl[j].track, "TrackEnvelope*") then
       insert_edge_points(dst_tbl[j].track, dst_t[1], dst_t[2], 0)
