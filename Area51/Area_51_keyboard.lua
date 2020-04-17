@@ -6,7 +6,19 @@ local startTime = reaper.time_precise()
 local thisCycleTime
 local Element = {}
 
-function Element:new(ID, name, func)
+function modifier_name(mod)
+   if mod == 4 then return "Ctrl"
+   elseif mod == 8 then return"Shift"
+   elseif mod == 16 then return "Alt"
+   elseif mod == 24 then return "Alt_Shift"
+   elseif mod == 12 then return "Ctrl_Shift"
+   elseif mod == 20 then return "Ctrl_Alt"
+   elseif mod == 28 then return "Ctrl_Shift_Alt"
+   else return
+   end
+end
+
+function Element:new(ID, name, func, m_key)
    local elm = {}
    elm.ID            = ID
    elm.name          = name
@@ -17,12 +29,13 @@ function Element:new(ID, name, func)
                                  end
                                  return start
                                  end
-   --elm.mod = function() return reaper.JS_Mouse_GetState(95) end
+   elm.m_key = m_key
    elm.down_time     = 0
    elm.last_key_down = false
    elm.last_key_hold = false
    elm.last_key_up   = true
    elm.func          = func
+   elm.int = -1
    ----------------------
    setmetatable(elm, self)
    self.__index = self
@@ -51,9 +64,19 @@ end
 
 function exec_func(tbl)
    local f_arr = type(tonumber(tbl.name)) == "number" and tonumber(tbl.name) or nil
-   if tbl.func then
+   if tbl.func then--and AREA_ACTIVE then
       _G[tbl.func](f_arr)
    end
+     -- if not tbl.m_key then
+      --   reaper.JS_VKeys_Intercept(tbl.ID[1],1)
+       --  _G[tbl.func](f_arr)
+     -- else
+     --    if tbl.mod == tbl.m_key then
+      --      _G[tbl.func](f_arr)
+     --    end
+     -- end
+  -- end
+   --if AREA_ACTIVE then reaper.JS_VKeys_Intercept(tbl.ID[1],-1) end
 end
 
 function Element:onKeyDown(kd)
@@ -62,7 +85,8 @@ function Element:onKeyDown(kd)
       self.last_key_down = true
       self.last_key_up   = false
       key["DOWN"] = self
-      --self:exec_func()
+      --exec_func(self)
+      --end
    end
 end
 
@@ -73,19 +97,22 @@ function Element:OnKeyUp(kd)
       self.last_key_hold = false
       key["UP"] = self
       --self:exec_func()
+      --end
    end
 end
 
 function Element:onKeyHold()
    self.last_key_hold = true
+   --self.int = 1
+   --reaper.JS_VKeys_Intercept(self.ID[1],1)
    key["HOLD"] = self
    --self:exec_func()
-   return self
+   --return self
 end
 
 function Element:GetKey()
    local KEY_DOWN = self.press()
-   self.mod = reaper.JS_Mouse_GetState(95)
+   self.mod = modifier_name(reaper.JS_Mouse_GetState(95))
 
    if KEY_DOWN then
       if self.last_key_up == true and self.last_key_down == false then
@@ -100,7 +127,7 @@ function Element:GetKey()
    end
 end
 
-function Track_keys(tbl)
+function Track_keys()
   local prevCycleTime = thisCycleTime or startTime
   thisCycleTime = reaper.time_precise()
 
@@ -177,10 +204,16 @@ for i = 1, 255 do
    elseif i == 34 then
       name = "PG-Down"
    end
-   Key_TB[#Key_TB + 1] = Key:new({i}, name, func)
+      Key_TB[#Key_TB + 1] = Key:new({i}, name, func)
+   --end
+   --[[
    Key_TB[#Key_TB + 1] = Key:new({17, 67}, "COPY", "Copy_mode", true) -- COPY (TOGGLE)
    Key_TB[#Key_TB + 1] = Key:new({17, 86}, "PASTE", "Copy_Paste") -- PASTE
    Key_TB[#Key_TB + 1] = Key:new({17, 68}, "DUPLICATE", "Duplicate_area") -- PASTE
-   --Key_TB[#Key_TB + 1] = Key:new({17, 88}, "TEST", "TEST") -- PASTE
+   ]]
+
+   Key_TB[#Key_TB + 1] = Key:new({17,67}, "COPY", "Copy_mode", "Ctrl") -- COPY (TOGGLE)
+   Key_TB[#Key_TB + 1] = Key:new({17,86}, "PASTE", "Copy_Paste", "Ctrl") -- PASTE
+   Key_TB[#Key_TB + 1] = Key:new({17,68}, "DUPLICATE", "Duplicate_area","Ctrl") -- PASTE
 
 end

@@ -30,6 +30,7 @@ end
 
 function Get_item_ghosts(tr, items, as_start, as_end)
 	if not items then return end
+	local Element = Get_class_tbl()
 	local ghosts = {}
 	for i = 1, #items do
 		local item = items[i]
@@ -37,11 +38,10 @@ function Get_item_ghosts(tr, items, as_start, as_end)
 		local item_lenght = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
 		local take = reaper.GetMediaItemTake(item, 0)
 		local item_start, item_len = New_items_position_in_area(as_start, as_end, item_start, item_lenght)
-		local x, w = Convert_time_to_pixel(item_start, item_len) 
+		local x, w = Convert_time_to_pixel(item_start, item_len)
 		local y, h = Get_tr_TBH(tr)
-		ghosts[#ghosts + 1] = Ghosts:new(x, y, w, h, item, item_start, item_len, {w, h} )
-		reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0)
-		reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
+		ghosts[#ghosts + 1] = Element:new(x, y, w, h, "ghost", item_start, item_len, {w, h} )
+		reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0xAA002244)
 		local peaks = (not reaper.TakeIsMIDI(take)) and Get_Item_Peaks(item, item_start, item_len) or Get_MIDI_notes(item, item_start, item_len)
 		if reaper.TakeIsMIDI(take) then
 			Draw_midi(peaks, ghosts[#ghosts].bm, item_start, item_len, w, h)
@@ -52,15 +52,38 @@ function Get_item_ghosts(tr, items, as_start, as_end)
 	return ghosts
 end
 
-function Get_env_ghosts(env_tr, env_points, as_start, as_end)
-	if not env_points then return end
+function Get_AI_or_ENV_ghosts(env_tr, env_points, AI, as_start, as_end)
+	if not AI and not env_points then return end
 	local ghosts = {}
+	Get_AI_ghosts(env_tr, AI, ghosts)
+	Get_env_ghosts(env_tr, env_points, ghosts, as_start, as_end)
+	return ghosts
+end
+
+function Get_AI_ghosts(env_tr, AI, ghosts)
+	if not AI then return end
+	local Element = Get_class_tbl()
+	for i = 1, #AI do
+		local AI_pos = AI[i].info["D_POSITION"]
+		local AI_len = AI[i].info["D_LENGTH"]
+		local x, w = Convert_time_to_pixel(AI_pos, AI_len)
+		local y, h = Get_tr_TBH(env_tr)
+		ghosts[#ghosts + 1] = Element:new(x, y, w, h, "ghost", AI_pos, AI_len, {w, h} )
+		reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0xAA002244)
+		reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, Round(h-h/10), w, Round(h/10), 0xFF00FFFF, 0.5, "COPY" )
+		Draw_env(env_tr, AI[i].points, ghosts[#ghosts].bm, x, h)
+	end
+	return ghosts
+end
+
+function Get_env_ghosts(env_tr, env_points, ghosts)
+	if not env_points then return end
+	local Element = Get_class_tbl()
 	local first_point, last_point, points_lenght = env_points[1].time, env_points[#env_points].time, (env_points[#env_points].time - env_points[1].time) -- DRAW ONLY WHERE ENVELOPES ARE INSTEAD OF WHOLE SELECTED AREA
-	local x, w = Convert_time_to_pixel(first_point, points_lenght) --local x, w = Get_Set_Position_In_Arrange(first_point, points_lenght)
+	local x, w = Convert_time_to_pixel(first_point, points_lenght)
 	local y, h = Get_tr_TBH(env_tr)
-	ghosts[#ghosts + 1] = Ghosts:new(x, y, w, h, env_tr, first_point, points_lenght, {w, h}) -- {w, h} are stored ghost static w,h so they do not update
-	reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0)
-	reaper.JS_LICE_FillRect(ghosts[#ghosts].bm, 0, 0, w, h, 0xFF002244, 0.5, "COPY" )
+	ghosts[#ghosts + 1] = Element:new(x, y, w, h, "ghost", first_point, points_lenght, {w, h}) -- {w, h} are stored ghost static w,h so they do not update
+	reaper.JS_LICE_Clear(ghosts[#ghosts].bm, 0xAA002244)
 	Draw_env(env_tr, env_points, ghosts[#ghosts].bm, x, h)
 	return ghosts
 end
@@ -98,9 +121,6 @@ function Get_Item_Peaks(item, item_start, item_len)
 	w = w > 0 and w or 1 -- FIX CRASHING IF WITH IS LESS THAN 1 PIXEL
 	local scaled_len = item_len/ item_len * w
 	local PCM_source = reaper.GetMediaItemTake_Source(take)
-
-	--reaper.PCM_Source_GetPeaks( src, peakrate, starttime, numchannels, numsamplesperchannel, want_extra_type, buf )
-
 	local n_chans = reaper.GetMediaSourceNumChannels(PCM_source)
 	local peakrate = scaled_len/item_len
 	local n_spls = math.floor(item_len * peakrate + 0.5) -- its Peak Samples

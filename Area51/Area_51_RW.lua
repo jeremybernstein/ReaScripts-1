@@ -5,8 +5,9 @@ require("Area_51_class")      -- AREA FUNCTIONS SCRIPT
 require("Area_51_ghosts")     -- AREA MOUSE INPUT HANDLING
 require("Area_51_keyboard")   -- AREA KEYBOARD INPUT HANDLING
 require("Area_51_mouse")      -- AREA MOUSE INPUT HANDLING
-require("Area_51_functions")  -- AREA CLASS SCRIPT
-require("Area_51_key_functions")  -- AREA CLASS SCRIPT
+require("Area_51_functions")  -- AREA FUNCTION CALL
+require("Area_51_functions_code")  -- AREA FUNCTIONS CODE
+require("Area_51_key_functions")  -- AREA KEY FUNCTIONS
 
 local main_wnd = reaper.GetMainHwnd() -- GET MAIN WINDOW
 local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRACK VIEW
@@ -14,32 +15,30 @@ local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
 local last_project, last_project_fn = reaper.EnumProjects(-1, "")
 local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTONDOWN", false) -- INTERCEPT MOUSE L BUTTON
 
-Areas_TB = {}
+local Areas_TB = {}
+local CPY_TBL = {}
 local active_as
-copy = false
 local CHANGE
+local ICON_INT
+copy = false
 
 local crash = function(errObject)
    local byLine = "([^\r\n]*)\r?\n?"
    local trimPath = "[\\/]([^\\/]-:%d+:.+)$"
    local err = errObject and string.match(errObject, trimPath) or "Couldn't get error message."
-
    local trace = debug.traceback()
    local stack = {}
    for line in string.gmatch(trace, byLine) do
       local str = string.match(line, trimPath) or line
       stack[#stack + 1] = str
    end
-
    local name = ({reaper.get_action_context()})[2]:match("([^/\\_]+)$")
-
    local ret =
       reaper.ShowMessageBox(
       name .. " has crashed!\n\n" .. "Would you like to have a crash report printed " .. "to the Reaper console?",
       "Oops",
       4
    )
-
    if ret == 6 then
       reaper.ShowConsoleMsg(
          "Error: " ..
@@ -51,12 +50,10 @@ local crash = function(errObject)
                            "Reaper:       \t" .. reaper.GetAppVersion() .. "\n" .. "Platform:     \t" .. reaper.GetOS()
       )
    end
-   --Release_reaper_keys()
-   --reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
    Exit()
 end
 
-function Msg(m)
+function msg(m)
    reaper.ShowConsoleMsg(tostring(m) .. "\n")
 end
 
@@ -115,9 +112,7 @@ function lowest_start()
 end
 
 function Get_folder_last_child(tr)
-   if reaper.GetMediaTrackInfo_Value(tr, "I_FOLDERDEPTH") <= 0 then
-     return
-   end -- ignore tracks and last folder child
+   if reaper.GetMediaTrackInfo_Value(tr, "I_FOLDERDEPTH") <= 0 then return end -- ignore tracks and last folder child
    local depth, last_child = 0
    local folderID = reaper.GetMediaTrackInfo_Value(tr, "IP_TRACKNUMBER") - 1
    for i = folderID + 1, reaper.CountTracks(0) - 1 do -- start from first track after folder
@@ -134,17 +129,6 @@ function Get_folder_last_child(tr)
 
 function Snap_val(val)
    return reaper.GetToggleCommandState(1157) == 1 and reaper.SnapToGrid(0, val) or val
-end
-
-function create_undo(tbl)
-  -- UNDO_BUFFER[#UNDO_BUFFER+1] = tbl
-end
-
-function make_undo()
-   --if #UNDO_BUFFER ~= 0 then
-   --   ALast_undo = UNDO_BUFFER[#UNDO_BUFFER]
-   --   AArea = Has_val(Areas_TB, nil, ALast_undo.guid)
-   --end
 end
 
 local function Check_undo_history()
@@ -190,12 +174,21 @@ function GetTracksXYH()
          TBH[m_env] = {t = m_env_t, b = m_env_b, h = m_env_h}
       end
    end
+
+   local last_Tr = reaper.GetTrack(0, reaper.CountTracks(0) - 1)
+   local last_Tr_total = reaper.GetMediaTrackInfo_Value(last_Tr, "I_WNDH") -- USE THIS BECAUSE TRACK MAY HAVE ENVELOPES
+   local last_Tr_h = reaper.GetMediaTrackInfo_Value(last_Tr, "I_TCPH")
+   local last_Tr_t = reaper.GetMediaTrackInfo_Value(last_Tr, "I_TCPY")
+
    for i = 1, reaper.CountTracks(0) do
       local tr = reaper.GetTrack(0, i - 1)
       local tr_h = reaper.GetMediaTrackInfo_Value(tr, "I_TCPH")
       local tr_t = reaper.GetMediaTrackInfo_Value(tr, "I_TCPY")
       local tr_b = tr_t + tr_h
       TBH[tr] = {t = tr_t, b = tr_b, h = tr_h}
+
+      local last_Tr_b = (last_Tr_t + (last_Tr_total*i)) + last_Tr_total
+      TBH["INV" .. i] = {t = last_Tr_t + (last_Tr_total*i), b = last_Tr_b, h = last_Tr_total}
       for j = 1, reaper.CountTrackEnvelopes(tr) do
          local env = reaper.GetTrackEnvelope(tr, j - 1)
          local env_h = reaper.GetEnvelopeInfo_Value(env, "I_TCPH")
@@ -208,7 +201,7 @@ end
 
 function Get_tr_TBH(tr)
    if TBH[tr] then
-      return TBH[tr].t, TBH[tr].h
+      return TBH[tr].t, TBH[tr].h, TBH[tr].b
    end
 end
 
@@ -216,9 +209,14 @@ function Set_active_as(act)
    active_as = act and act or nil
 end
 
+function Set_copy_tbl(tbl)
+   CPY_TBL = tbl
+end
+
 function Get_area_table(name)
    if name == "Areas" then return Areas_TB end
    if name == "Active" then return active_as end
+   if name == "Copy" then return CPY_TBL end
    local tbl = active_as and {active_as} or Areas_TB
    return #tbl ~= 0 and tbl
 end
@@ -226,7 +224,6 @@ end
 -- FINDS TRACKS THAT ARE IN AREA OR MOUSE SWIPED RANGE
 function GetTracksFromRange(y_t, y_b)
    local range_tracks = {}
-   -- FIND TRACKS IN THAT RANGE
    for track, coords in pairs(TBH) do
       if coords.t >= y_t and coords.b <= y_b and coords.h ~= 0 then
          range_tracks[#range_tracks+1] = {track = track, v = coords.t}
@@ -276,7 +273,6 @@ function Arrange_view_info()
    local proj_state = reaper.GetProjectStateChangeCount(0) -- PROJECT STATE
    local _, scroll, _, _, scroll_b = reaper.JS_Window_GetScrollInfo(track_window, "SB_VERT") -- GET VERTICAL SCROLL
    local _, Arr_end_time = reaper.GetSet_ArrangeView2(0, false, 0, 0) -- GET ARRANGE VIEW
-
    if prev_Arr_end_time ~= Arr_end_time then -- THIS ONE ALWAYS CHANGES WHEN ZOOMING IN OUT
       prev_Arr_end_time = Arr_end_time
       return true
@@ -300,9 +296,7 @@ end
 
 -- SINCE TRACKS CAN BE HIDDEN, LAST VISIBLE TRACK COULD BE ANY NOT NECESSARY TAST PROJECT TRACK
 function Get_last_visible_track()
-   if reaper.CountTracks(0) == 0 then
-      return
-   end
+   if reaper.CountTracks(0) == 0 then return end
    local last_tr = reaper.GetTrack(0, reaper.CountTracks(0) - 1)
    if not reaper.IsTrackVisible(last_tr, false) then
       for i = reaper.CountTracks(0), 1, -1 do
@@ -317,11 +311,13 @@ end
 
 -- TOTAL HEIGHT OF AREA SELECTION IS FIRST TRACK IN THE CURRENT AREA AND LAST TRACK IN THE CURRENT AREA (RANGE)
 function GetTrackTBH(tbl)
-   if not tbl then
-      return
-   end
+   if not tbl then return end
    if TBH[tbl[1].track] and TBH[tbl[#tbl].track] then
-      return TBH[tbl[1].track].t, TBH[tbl[#tbl].track].b - TBH[tbl[1].track].t
+      if TBH[tbl[#tbl].track].b - TBH[tbl[1].track].t == 0 then
+         return TBH[tbl[#tbl].track].t, TBH[tbl[1].track].b - TBH[tbl[#tbl].track].t
+      else
+         return TBH[tbl[1].track].t, TBH[tbl[#tbl].track].b - TBH[tbl[1].track].t
+      end
    end
 end
 
@@ -335,7 +331,7 @@ local function Check_top_bot(top_start, top_end, bot_start, bot_end) -- CHECK IF
 end
 
 -- CHECK IF VALUES ARE REVERSED AND RETURN THEM THAT WAY
-local function Check_left_right(val1, val2) -- CHECK IF VALUES GOT REVERSED
+function Check_left_right(val1, val2) -- CHECK IF VALUES GOT REVERSED
    if val2 < val1 then
       return val2, val1
    else
@@ -346,15 +342,21 @@ end
 -- CHECK IF MOUSE IS MOVING IN X OR Y DIRRECTION (USING TO REDUCE CPU USAGE)
 local prev_s_start, prev_s_end, prev_r_start, prev_r_end
 local function Check_change(s_start, s_end, r_start, r_end)
-   if s_start == s_end then
-      return
-   end
+   if s_start == s_end then return end
    if prev_s_end ~= s_end or prev_s_start ~= s_start then
       prev_s_start, prev_s_end = s_start, s_end
       return "TIME X"
    elseif prev_r_start ~= r_start or prev_r_end ~= r_end then
       prev_r_start, prev_r_end = r_start, r_end
       return "RANGE Y"
+   end
+end
+
+function DeleteCopy(tab)
+   if not tab then return end
+   for i = #tab, 1, -1 do
+      reaper.JS_LICE_DestroyBitmap(tab[i].bm) -- DESTROY BITMAPS FROM AS THAT WILL BE DELETED
+      table.remove(tab, i) -- REMOVE AS FROM TABLE
    end
 end
 
@@ -390,9 +392,10 @@ function Remove_ghost(tbl)
 end
 
 -- DELETE OR UNLINK GHOSTS
-function Ghost_unlink_or_destroy(tbl, job)
+function Ghost_unlink_or_destroy(tbl, job,area)
    if not tbl then return end
    for a = 1, #tbl do
+      if area then reaper.JS_Composite_Unlink(track_window, tbl[a].bm, true) end
       if not tbl[a].sel_info then return end
       for i = 1, #tbl[a].sel_info do
          if tbl[a].sel_info[i].ghosts then
@@ -401,19 +404,19 @@ function Ghost_unlink_or_destroy(tbl, job)
                if job == "Delete" then
                   reaper.JS_LICE_DestroyBitmap(ghost.bm)
                elseif job == "Unlink" then
-                  reaper.JS_Composite_Unlink(track_window, ghost.bm)
+                  reaper.JS_Composite_Unlink(track_window, ghost.bm, true)
                end
             end
          end
       end
    end
-   Refresh_reaper()
 end
 
 -- CREATE TABLE WITH ALL AREA INFORMATION NEEDED
 local function CreateAreaTable(x, y, w, h, guid, time_start, time_end)
+   local Element = Get_class_tbl()
    if not Has_val(Areas_TB, nil, guid) then
-      Areas_TB[#Areas_TB + 1] = AreaSelection:new(x, y, w, h, guid, time_start, time_end - time_start) -- CREATE NEW CLASS ONLY IF DOES NOT EXIST
+      Areas_TB[#Areas_TB + 1] = Element:new(x, y, 1, 1, guid, time_start, time_end - time_start) -- CREATE NEW CLASS ONLY IF DOES NOT EXIST
    else
       Areas_TB[#Areas_TB].time_start = time_start
       Areas_TB[#Areas_TB].time_dur = time_end - time_start
@@ -436,6 +439,7 @@ end
 local function GetTrackData(tbl, as_start, as_end)
    for i = 1, #tbl do
       if reaper.ValidatePtr(tbl[i].track, "MediaTrack*") then
+         --local items = get_items_in_as(tbl[i].track, as_start, as_end, "items")
          tbl[i].items = get_items_in_as(tbl[i].track, as_start, as_end) -- TRACK MEDIA ITEMS
          tbl[i].ghosts = Get_item_ghosts(tbl[i].track, tbl[i].items, as_start, as_end)
       elseif reaper.ValidatePtr(tbl[i].track, "TrackEnvelope*") then
@@ -443,7 +447,7 @@ local function GetTrackData(tbl, as_start, as_end)
          tbl[i].env_name = env_name -- ENVELOPE NAME
          tbl[i].env_points = get_as_tr_env_pts(tbl[i].track, as_start, as_end) -- ENVELOPE POINTS
          tbl[i].AI = get_as_tr_AI(tbl[i].track, as_start, as_end) -- AUTOMATION ITEMS
-         tbl[i].ghosts = Get_env_ghosts(tbl[i].track, tbl[i].env_points)
+         tbl[i].ghosts = Get_AI_or_ENV_ghosts(tbl[i].track, tbl[i].env_points, tbl[i].AI)
       end
    end
    return tbl
@@ -451,9 +455,7 @@ end
 
 -- ALL DATA FROM THAT TRACKS (ITEMS,ENVELOPES,AIS)
 function GetSelectionInfo(tbl)
-   if not tbl then
-      return
-   end
+   if not tbl then return end
    local area_top, area_bot, area_start, area_end = tbl.y, tbl.y + tbl.h, tbl.time_start, tbl.time_start + tbl.time_dur
    local tracks = GetTracksFromRange(area_top, area_bot) -- GET TRACK RANGE
    local data = GetTrackData(tracks, area_start, area_end) -- GATHER ALL INFO
@@ -498,24 +500,26 @@ end
 
 -- IF TRACK IS DELETED FROM PROJECT REMOVE IT FROM AREAS TABLE
 function ValidateRemovedTracks()
-   if #Areas_TB == 0 then
-      return
-   end
+   if #Areas_TB == 0 then return end
    for i = #Areas_TB, 1, -1 do
       for j = #Areas_TB[i].sel_info, 1, -1 do
          if not reaper.ValidatePtr(Areas_TB[i].sel_info[j].track, "MediaTrack*") or reaper.ValidatePtr(Areas_TB[i].sel_info[j].track, "TrackEnvelope*") then
-            for k = 1, #Areas_TB[i].sel_info[j].ghosts do
-               local ghost = Areas_TB[i].sel_info[j].ghosts[k]
-               reaper.JS_LICE_DestroyBitmap(ghost.bm)
+            if Areas_TB[i].sel_info[j].ghosts then
+               for k = 1, #Areas_TB[i].sel_info[j].ghosts do
+                  local ghost = Areas_TB[i].sel_info[j].ghosts[k]
+                  reaper.JS_LICE_DestroyBitmap(ghost.bm)
+               end
             end
             table.remove(Areas_TB[i].sel_info, j)
             if #Areas_TB[i].sel_info == 0 then
                reaper.JS_LICE_DestroyBitmap(Areas_TB[i].bm)
-               Refresh_reaper()
                table.remove(Areas_TB, i)
             end
          end
       end
+   end
+   if #Areas_TB == 0 then
+      if copy then Copy_mode() end
    end
 end
 
@@ -536,118 +540,77 @@ function Convert_to_track(tr)
    return reaper.ValidatePtr(tr, "TrackEnvelope*") and reaper.Envelope_GetParentTrack(tr) or tr
 end
 
-function Validate_tracks_type(tbl,tr_type)
-   for i = 1, #tbl do
-      if reaper.ValidatePtr(tbl[i].track, tr_type .. "*") then return true end
-   end
-   return false
-end
+function env_offset_new(src_tr_tbl, old, tr, env_name)
+   local cur_tr = mouse.last_tr
+   local first_tr = copy and AAA_TR or mouse.otr
+   if type(tr) == "string" then return end -- AVOID INVISIBLE TRACKS
+   if reaper.ValidatePtr(first_tr, "TrackEnvelope*") and not Validate_tracks_type(src_tr_tbl,"MediaTrack") then -- ONLY ENVELOPES ARE SELECTED
+      if reaper.ValidatePtr(cur_tr, "TrackEnvelope*") then
+         local m_num = GetEnvNum(cur_tr)
+         local first_num = GetEnvNum(first_tr)
 
--- ENVELOPE OFFSET FOR MOVE ZONE
-function Env_offset(src_tbl, dest_tbl)
-   local cur_m_tr = mouse.last_tr
-   local first_m_tr = mouse.otr
+         local tr_num = GetEnvNum(old)
+         local first_area_tr_num = GetEnvNum(src_tr_tbl[1].track)
+         local last_area_tr_num = GetEnvNum(src_tr_tbl[#src_tr_tbl].track)
 
-   if reaper.ValidatePtr(first_m_tr, "MediaTrack*") then return end
-   if Validate_tracks_type(src_tbl,"MediaTrack") then return end -- IF MEDIA TRACK IS IN THE SELECTION BREAK
-
-   local f_env_par_tr = reaper.Envelope_GetParentTrack(first_m_tr)
-
-   if reaper.ValidatePtr(cur_m_tr, "TrackEnvelope*") then
-      local cur_m_tr_num = GetEnvNum(cur_m_tr)
-      local first_m_tr_num = GetEnvNum(first_m_tr)
-
-      local first_area_tr_num = GetEnvNum(src_tbl[1].track)
-      local last_area_tr_num = GetEnvNum(src_tbl[#src_tbl].track)
-
-      local mouse_delta = cur_m_tr_num - first_m_tr_num
-      for i = #src_tbl, 1, -1 do
-         local tr = src_tbl[i].track
-         local tr_num = GetEnvNum(tr)
-         local offset_num = tr_num + mouse_delta
-         local new_env_tr = reaper.GetTrackEnvelope(f_env_par_tr, offset_num)
-         if (mouse_delta + last_area_tr_num) < reaper.CountTrackEnvelopes(f_env_par_tr) and (mouse_delta + first_area_tr_num) >= 0 then
-            dest_tbl[i].track = new_env_tr
-         end
+         local delta_test = Limit_offset_range(m_num - first_num, first_area_tr_num, last_area_tr_num, 0, reaper.CountTrackEnvelopes(Convert_to_track(first_tr))-1)
+         local new_env = reaper.GetTrackEnvelope(tr, delta_test + tr_num)
+         return new_env
       end
    end
 
-end
-
--- TRACK OFFSET FOR MOVE ZONE
-function Track_offset(src_tbl, dest_tbl)
-   local cur_m_tr = mouse.last_tr
-   local first_m_tr = mouse.otr
-   if reaper.ValidatePtr(first_m_tr, "TrackEnvelope*") then return end
-   if Validate_tracks_type(src_tbl,"TrackEnvelope") then return end -- IF ENVELOPE TRACK IS IN THE SELECTION BREAK
-
-   local cur_m_tr_num = reaper.CSurf_TrackToID(Convert_to_track(cur_m_tr), false)
-   local first_m_tr_num = reaper.CSurf_TrackToID(Convert_to_track(first_m_tr), false)
-
-   local mouse_delta = cur_m_tr_num - first_m_tr_num
-
-   local last_project_tr = Get_last_visible_track()
-   local last_project_tr_id = reaper.CSurf_TrackToID(last_project_tr, false)
-
-   local last_area_tr = Convert_to_track(src_tbl[#src_tbl].track)
-   local last_area_tr_num = reaper.CSurf_TrackToID(last_area_tr, false)
-
-   local first_area_tr = Convert_to_track(src_tbl[1].track)
-   local first_area_tr_num = reaper.CSurf_TrackToID(first_area_tr, false)
-
-   for i = #src_tbl, 1, -1 do
-      local tr = src_tbl[i].track
-      local new_tr, under = Track_from_offset(tr, mouse_delta)
-      --local tr_num = reaper.CSurf_TrackToID(tr, false)
-      --local offset_num = tr_num + mouse_delta
-      --local new_tr = reaper.CSurf_TrackFromID(offset_num, false)
-
-      if (mouse_delta + first_area_tr_num) > 0 and (mouse_delta + last_area_tr_num) <= last_project_tr_id then
-         dest_tbl[i].track = new_tr
-      end
-   end
-end
-
--- CALCULATE MOUSE DELTA FOR MEDIA TRACKS OR ENVELOPE PARENTS
-function Mouse_tr_offset()
-   if not mouse.last_tr then return end
-   local _, m_cy = To_client(0,mouse.y)
-   local m_tr_num = reaper.CSurf_TrackToID(Convert_to_track(mouse.last_tr), false)
-
-   local first_area_tr = active_as and active_as.sel_info[1].track or Areas_TB[1].sel_info[1].track -- GET FIRST AREA (ACTIVE SELECTED AREA OR FIRST AREA IF MULTI AREAS)
-   local first_area_tr_num = reaper.CSurf_TrackToID(Convert_to_track(first_area_tr), false) --
-
-   local mouse_delta = m_tr_num - first_area_tr_num
-   mouse_delta = m_cy > TBH[Get_last_visible_track()].b and mouse_delta + 1 or mouse_delta   -- IF MOUSE IS BELLOW LAST TRACK ADD 1 (SO ALL TRACKS ARE BELLOW LAST TRACK)
-
-   return mouse_delta
-end
-
--- ENVELOPE TRACK OFFSET MATCH AND OVERRIDE MODE (COPY MODE)
-function Env_Mouse_Match_Override_offset(src_tr_tbl, tr, num, env_name)
-   local m_env = reaper.ValidatePtr(mouse.last_tr, "TrackEnvelope*") and mouse.last_tr or nil
-   if m_env and (#Areas_TB == 1 or active_as) and not Validate_tracks_type(src_tr_tbl,"MediaTrack") then --not reaper.ValidatePtr(first_tr, "MediaTrack*") then -- OVERRIDE MODE ONLY IF THERE IS ONE AREA ACTIVE (CREATED OR SELECTED) AND NO MEDIA TRACK IS SELECTED
-      local m_num = GetEnvNum(m_env)
-      local mouse_delta = m_num + num
-      local new_env_tr = reaper.GetTrackEnvelope(tr, mouse_delta)
-      return new_env_tr, "OVERRIDE"
-   else                                            -- MATCH MODE
+   if reaper.ValidatePtr(first_tr, "MediaTrack*") or Validate_tracks_type(src_tr_tbl,"MediaTrack") or reaper.ValidatePtr(cur_tr, "MediaTrack*") then -- IF MEDIA TRACKS ARE ALSO IN SELECTION RETURN ONLY MATCHED
       local par_tr = Convert_to_track(tr)
       for i = 1, reaper.CountTrackEnvelopes(par_tr) do
          local tr_env = reaper.GetTrackEnvelope(par_tr, i - 1)
          local _, tr_env_name = reaper.GetEnvelopeName(tr_env)
          if tr_env_name == env_name then
-            return tr_env, "MATCH"
+            return tr_env
          end
       end
    end
 end
 
+function Limit_offset_range(delta, first, last, min, max)
+   delta = delta + first >= min and delta or min - first
+   delta = delta + last <= max and delta or max - last
+   return delta
+end
+
+function mouse_track_offset(first)
+   local tbl = Get_area_table()
+   local _, m_cy = To_client(0, mouse.y)
+
+   local first_area = copy and reaper.CSurf_TrackToID(Convert_to_track(tbl[1].sel_info[1].track), false) or reaper.CSurf_TrackToID(Convert_to_track(first), false)
+
+   local last_project_tr = Get_last_visible_track()
+   local l_y, l_h, l_b = Get_tr_TBH(last_project_tr)
+
+   local cur_m_tr = mouse.last_tr
+   local first_m_tr = copy and tbl[1].sel_info[1].track or mouse.otr
+   local cur_m_tr_num = reaper.CSurf_TrackToID(Convert_to_track(cur_m_tr), false)
+
+   local first_m_tr_num = reaper.CSurf_TrackToID(Convert_to_track(first_m_tr), false)
+
+   local mouse_inv_tracks = (l_b ~= 0 and m_cy > l_b) and floor((m_cy - l_b) / l_h) + 1 or 0 -- IF MOUSE IS UNDER LAST PROJECT TRACK START COUTNING VOODOO
+   local mouse_tr_offset = cur_m_tr_num - first_m_tr_num + mouse_inv_tracks
+
+   local master_tr_visibility = reaper.GetMasterTrackVisibility()
+   local min_tr = (master_tr_visibility == 1 or master_tr_visibility == 3) and 0 or 1 -- if master track is visible lowest track id is 0
+
+   mouse_tr_offset = Limit_offset_range(mouse_tr_offset, first_area, first_area, min_tr, reaper.CountTracks(0) + 1 )-- LIMIT OFFSET RANGE TO FROM 1 TRACK IN PROJECT TO LAST TRACK + AREA SIZE
+   return mouse_tr_offset
+end
+
+function Validate_tracks_type(tbl,tr_type)
+   for i = 1, #tbl do
+      if reaper.ValidatePtr(tbl[i].track, tr_type .. "*") then return true end
+   end
+end
+
 -- RETURN FIRST VISIBLE TRACK
 local function find_visible_tracks(cur_offset_id)
-   if cur_offset_id == 0 then
-      return 1
-   end -- TO DO FIX
+   if cur_offset_id == 0 then return 0 end
    for i = cur_offset_id, reaper.CountTracks(0) do
       local track = reaper.GetTrack(0, i - 1)
       if track and reaper.IsTrackVisible(track, false) then
@@ -661,10 +624,10 @@ end
 function Track_from_offset(tr, offset)
    local tr_num = reaper.CSurf_TrackToID(Convert_to_track(tr), false)
    local last_vis_tr = Get_last_visible_track()
-   local last_num = reaper.CSurf_TrackToID(last_vis_tr, false) 
-   local under = tr_num + offset > last_num and (tr_num + offset) - last_num or nil
+   local last_num = reaper.CSurf_TrackToID(last_vis_tr, false)
+   local under = (tr_num + offset) > last_num and (tr_num + offset) - last_num or nil
    local offset_tr = find_visible_tracks(tr_num + offset) or tr_num + offset -- FIND FIRST AVAILABLE VISIBLE TRACK IF HIDDEN
-   local new_tr = under and last_vis_tr or reaper.CSurf_TrackFromID(offset_tr, false) --local new_tr = under and last_vis_tr or reaper.CSurf_TrackFromID(tr_num + offset, false)
+   local new_tr = under and "INV" .. under or reaper.CSurf_TrackFromID(offset_tr, false)
    return new_tr, under
 end
 
@@ -706,22 +669,29 @@ function Change_cursor(zone)
    end
 end
 
+local last_m_tr, last_m_p, last_mc
+function check_mouse_change()
+   if mouse.p ~= last_m_p or mouse.tr ~= last_m_tr or mouse.l_click ~= last_mc then
+      last_m_p = mouse.p
+      last_m_tr = mouse.tr
+      last_mc = mouse.l_click
+      return true
+   end
+end
+
 local function Main()
    xpcall(
       function()
          GetTracksXYH() -- GET XYH INFO OF ALL TRACKS
          Check_undo_history()
          Check_project()
-
          mouse = MouseInfo()
          mouse.tr, mouse.r_t, mouse.r_b = Get_track_under_mouse(mouse.x, mouse.y)
          CHANGE = ARRANGE and Change() or false
-
          WINDOW_IN_FRONT = Get_window_under_mouse()
          Track_keys()
          Intercept_reaper_key(Areas_TB) -- WATCH TO INTERCEPT KEYS WHEN AREA IS DRAWN (ON SCREEN)
          Pass_thru()
-
          if not BLOCK then
             if mouse.Ctrl_Shift() or CREATING then --and mouse.Shift() then
                CreateAreaFromSelection()
@@ -742,13 +712,10 @@ end
 function Exit() -- DESTROY ALL BITMAPS ON REAPER EXIT
    reaper.JS_WindowMessage_Release(track_window, "WM_LBUTTONDOWN")
    reaper.JS_WindowMessage_Release(track_window, "WM_SETCURSOR")
+   if get_buffer_bm() then reaper.JS_LICE_DestroyBitmap(get_buffer_bm()) end -- KILL ZONE BUFFER BM (DRAGING/MOVING BM)
    Release_reaper_keys()
-   --Ghost_unlink_or_destroy(Areas_TB, "Delete")
    RemoveAsFromTable(Areas_TB, "Delete", "~=")
-   if reaper.ValidatePtr(track_window, "HWND") then
-      Refresh_reaper()
-   end
+   DeleteCopy(CPY_TBL)
 end
-
 reaper.atexit(Exit)
 Main()
