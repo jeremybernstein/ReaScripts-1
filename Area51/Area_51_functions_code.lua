@@ -306,6 +306,7 @@ function is_item_in_as(as_start, as_end, item_start, item_end)
 end
 
 function get_items_in_as(as_tr, as_start, as_end)
+  if reaper.ValidatePtr(as_tr, "TrackEnvelope*") then return end
   local as_items = {}
 
   for i = 1, reaper.CountTrackMediaItems(as_tr) do

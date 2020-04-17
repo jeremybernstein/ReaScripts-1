@@ -609,16 +609,16 @@ function Validate_tracks_type(tbl,tr_type)
 end
 
 -- RETURN FIRST VISIBLE TRACK
-local function find_visible_tracks(cur_offset_id)
+local function find_visible_tracks(cur_offset_id, next)
    if cur_offset_id == 0 then return 0 end
    for i = cur_offset_id, reaper.CountTracks(0) do
       local track = reaper.GetTrack(0, i - 1)
       if track and reaper.IsTrackVisible(track, false) then
          return i
-      else
       end
    end
 end
+
 
 -- CONVERT OFFSET TO TRACK AND CALCULATE HOW MANY TRACKS IS THE NEW TRACK UNDER LAST PROJECT TRACK
 function Track_from_offset(tr, offset)
@@ -627,6 +627,16 @@ function Track_from_offset(tr, offset)
    local last_num = reaper.CSurf_TrackToID(last_vis_tr, false)
    local under = (tr_num + offset) > last_num and (tr_num + offset) - last_num or nil
    local offset_tr = find_visible_tracks(tr_num + offset) or tr_num + offset -- FIND FIRST AVAILABLE VISIBLE TRACK IF HIDDEN
+   local new_tr = under and "INV" .. under or reaper.CSurf_TrackFromID(offset_tr, false)
+   return new_tr, under
+end
+
+function Track_from_offset2(tr, offset, num)
+   local tr_num = reaper.CSurf_TrackToID(Convert_to_track(tr), false)
+   local last_vis_tr = Get_last_visible_track()
+   local last_num = reaper.CSurf_TrackToID(last_vis_tr, false)
+   local under = (tr_num + offset) > last_num and (tr_num + offset) - last_num or nil
+   local offset_tr = find_visible_tracks(tr_num + offset + num) or tr_num + offset -- FIND FIRST AVAILABLE VISIBLE TRACK IF HIDDEN
    local new_tr = under and "INV" .. under or reaper.CSurf_TrackFromID(offset_tr, false)
    return new_tr, under
 end
