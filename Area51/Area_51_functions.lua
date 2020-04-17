@@ -20,6 +20,7 @@ function Paste(tr, src_tr, data, t_start, t_dur, t_offset, job)
   create_item(tr, data.items, t_start, t_dur, offset, job)
   paste_env(tr, src_tr, data.env_points, t_start, t_dur, offset, job)
   Paste_AI(tr, src_tr, data.AI, t_start, t_dur, offset, job)
+  update_all = true
   refresh_tracks = true
 end
 

@@ -15,7 +15,7 @@ local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
 local last_project, last_project_fn = reaper.EnumProjects(-1, "")
 local WML_intercept = reaper.JS_WindowMessage_Intercept(track_window, "WM_LBUTTONDOWN", false) -- INTERCEPT MOUSE L BUTTON
 
-local Areas_TB = {}
+Areas_TB = {}
 local CPY_TBL = {}
 local active_as
 local CHANGE
