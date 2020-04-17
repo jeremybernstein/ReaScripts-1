@@ -187,7 +187,7 @@ end
 function create_item(tr, data, as_start, as_dur, time_offset, job)
   if not data or tr == reaper.GetMasterTrack(0) then return end
   local BUFFER = Buffer_area_data(data)
-  split_or_delete_items(tr, data, as_start + time_offset, as_dur, "Delete")
+  --split_or_delete_items(tr, data, as_start + time_offset, as_dur, "Delete")
   for i = 1, #BUFFER do
     local item = BUFFER[i]
     local item_start = item.start
