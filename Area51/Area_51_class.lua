@@ -139,9 +139,10 @@ function Element:ghosts(off_time)
   local offset = mouse_track_offset(self.sel_info[1].track)
   local area_offset = self.time_start - lowest_start() --  OFFSET AREA SELECTIONS TO MOUSE POSITION
   local mouse_offset = off_time and off_time or (mouse.p - self.time_start) + area_offset
+
   for i = 1, #self.sel_info do
     local new_tr = Track_from_offset(self.sel_info[i].track, offset)
-    --local new_tr = Track_from_offset(self.sel_info[1].track, offset, i-1)
+    --local new_tr = Track_from_offset2(self.sel_info[i].track, offset)
     new_tr = env_offset_new(self.sel_info, self.sel_info[i].track, new_tr, self.sel_info[i].env_name) or new_tr
     temp_info[i] = { track = new_tr }
     if self.sel_info[i].ghosts then
