@@ -36,7 +36,7 @@ end
 function Area_function(tbl,func)
   if not tbl then return end -- IF THERE IS NO TABLE OR TABLE HAS NO DATA RETURN
     reaper.Undo_BeginBlock()
-    --reaper.PreventUIRefresh(1)
+    reaper.PreventUIRefresh(1)
     local tr_offset = copy and mouse_track_offset() or 0
 
     for a = 1, #tbl do
@@ -82,7 +82,7 @@ function Area_function(tbl,func)
       end
     end
     reaper.Undo_EndBlock("A51 " .. func, 4)
-    --reaper.PreventUIRefresh(-1)
+    reaper.PreventUIRefresh(-1)
     reaper.UpdateTimeline()
     reaper.UpdateArrange()
 end
@@ -128,7 +128,7 @@ end
 
 function Area_Drag(src_tbl, dst_tbl, src_time_tbl, dst_time_tbl, src_dst_offset, zone, action)
   reaper.Undo_BeginBlock()
-  --reaper.PreventUIRefresh(1)
+  reaper.PreventUIRefresh(1)
   local func = zone .. "_" .. action
   local clean = (action == "move" and src_dst_offset ~= 0) and Clean(dst_tbl.sel_info, src_tbl.sel_info, dst_time_tbl, src_time_tbl)
   local tr_offset = mouse_track_offset(src_tbl.sel_info[1].track)
@@ -169,7 +169,7 @@ function Area_Drag(src_tbl, dst_tbl, src_time_tbl, dst_time_tbl, src_dst_offset,
   end
 
   reaper.Undo_EndBlock("A51 " .. func, 4)
-  --reaper.PreventUIRefresh(-1)
+  reaper.PreventUIRefresh(-1)
   reaper.UpdateTimeline()
   reaper.UpdateArrange()
 end
