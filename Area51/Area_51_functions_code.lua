@@ -82,9 +82,6 @@ local AI_info = {
 
 function Paste_AI(tr, src_tr, data, t_start, t_dur, t_offset, job)
   if not data then return end
-  --if tr and reaper.ValidatePtr(tr, "MediaTrack*") and not MODE then
-  --  tr = get_set_envelope_chunk(tr, src_tr)
-  --end
   if tr and reaper.ValidatePtr(tr, "TrackEnvelope*") then
     for i = 1, #data do
       if not data[i].info then return end
@@ -143,9 +140,6 @@ function paste_env(tr, env_name, env_data, as_start, as_dur, time_offset, job)
     del_env(tr, as_start, as_dur, time_offset) 
     return
   end
-  --if tr and reaper.ValidatePtr(tr, "MediaTrack*") and not MODE then
-  --  tr = get_set_envelope_chunk(tr, env_name)
-  --end
   if tr and reaper.ValidatePtr(tr, "TrackEnvelope*") then -- IF TRACK HAS ENVELOPES PASTE THEM
     insert_edge_points(tr, as_start, as_dur, time_offset, job) -- INSERT EDGE POINTS AT CURRENT ENVELOE VALUE AND DELETE WHOLE RANGE INSIDE (DO NOT ALLOW MIXING ENVELOPE POINTS AND THAT WEIRD SHIT)
     del_env(tr, as_start, as_dur, time_offset)
@@ -216,44 +210,6 @@ function create_item(tr, data, as_start, as_dur, time_offset, job)
     end
     reaper.SetMediaItemInfo_Value(empty_item, "D_VOL", item_volume)
   end
-end
-
-function create_item_OLD(tr, data, as_start, as_dur, time_offset, job)
-  if not data or tr == reaper.GetMasterTrack(0) then return end
-  local BUFFER = get_item_data(data)
-  split_or_delete_items(tr, data, as_start + time_offset, as_dur, "Delete")
-  for i = 1, #data do
-    local item = data[i]
-    local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
-    local item_lenght = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-    local item_volume = reaper.GetMediaItemInfo_Value(item, "D_VOL")
-    local active_take = reaper.GetActiveTake( item )
-    local empty_item = reaper.AddMediaItemToTrack(tr)
-
-    for j = 1, reaper.CountTakes( item ) do
-      local take = reaper.GetMediaItemTake( item, j-1 )
-      local take_startoffset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
-      local source = reaper.GetMediaItemTake_Source(take)
-      local item_type = reaper.GetMediaSourceType(source, "")
-      local filename = reaper.GetMediaSourceFileName(source, "")
-      local clonedsource = reaper.PCM_Source_CreateFromFile(filename)
-      local new_take = reaper.AddTakeToMediaItem(empty_item)
-      local new_start, new_lenght, new_source_offset = New_items_position_in_area(as_start, as_start + as_dur, item_start, item_lenght)
-      reaper.SetMediaItemInfo_Value(empty_item, "D_POSITION", new_start + time_offset)
-      reaper.SetMediaItemInfo_Value(empty_item, "D_LENGTH", new_lenght)
-      reaper.SetMediaItemTakeInfo_Value(new_take, "D_STARTOFFS", take_startoffset + new_source_offset)      
-      if item_type:find("MIDI") then
-        reaper.SetMediaItemTake_Source(new_take, source )
-      else
-        reaper.SetMediaItemTake_Source(new_take, clonedsource)
-      end
-      if take == active_take then
-        reaper.SetActiveTake( new_take )
-      end
-    end
-    reaper.SetMediaItemInfo_Value(empty_item, "D_VOL", item_volume)
-  end
-
 end
 
 function Insert_track(under)
