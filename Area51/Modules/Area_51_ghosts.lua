@@ -1,3 +1,10 @@
+ --[[
+   * Author: SeXan
+   * Licence: GPL v3
+   * Version: 0.01
+	 * NoIndex: true
+--]]
+
  -- TRANSLATION OF VARIOUS VALUES TO OTHER RANGE
  -- CURRENTLY IT IS USED TO CONVERT ENVELOPE POINTS VALUES TO PIXELS OF THE TRACK HEIGHT
 local function TranslateRange(value, oldMin, oldMax, newMin, newMax)

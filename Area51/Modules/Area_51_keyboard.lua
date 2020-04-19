@@ -1,3 +1,10 @@
+--[[
+   * Author: SeXan
+   * Licence: GPL v3
+   * Version: 0.01
+	 * NoIndex: true
+--]]
+
 local Key_TB = {}
 local key
 local intercept_keys = -1

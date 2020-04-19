@@ -1,3 +1,10 @@
+--[[
+   * Author: SeXan
+   * Licence: GPL v3
+   * Version: 0.01
+	 * NoIndex: true
+--]]
+
 local prev_area
 
 function Remove()

@@ -1,3 +1,19 @@
+--[[
+ * ReaScript Name: Area51 Selection ALPHA
+ * Author: Sexan
+ * Licence: GPL v3
+ * REAPER: 6.0
+ * Extensions: None
+ * Version: 0.01
+ * Provides: Modules/*.lua
+--]]
+
+--[[
+ * Changelog:
+ * v0.01 (2020-04-19)
+   + Initial Release
+--]]
+
 package.path = debug.getinfo(1, "S").source:match [[^@?(.*[\/])[^\/]-$]] .. "?.lua;" -- GET DIRECTORY FOR REQUIRE
 package.cursor = debug.getinfo(1, "S").source:match [[^@?(.*[\/])[^\/]-$]] .. "Cursors\\" -- GET DIRECTORY FOR CURSORS
 
@@ -12,13 +28,13 @@ if not reaper.APIExists("JS_ReaScriptAPI_Version") then
    end
 end
 
-require("Area_51_class")      -- AREA FUNCTIONS SCRIPT
-require("Area_51_ghosts")     -- AREA MOUSE INPUT HANDLING
-require("Area_51_keyboard")   -- AREA KEYBOARD INPUT HANDLING
-require("Area_51_mouse")      -- AREA MOUSE INPUT HANDLING
-require("Area_51_functions")  -- AREA FUNCTION CALL
-require("Area_51_functions_code")  -- AREA FUNCTIONS CODE
-require("Area_51_key_functions")  -- AREA KEY FUNCTIONS
+require("Modules/Area_51_class")      -- AREA FUNCTIONS SCRIPT
+require("Modules/Area_51_ghosts")     -- AREA MOUSE INPUT HANDLING
+require("Modules/Area_51_keyboard")   -- AREA KEYBOARD INPUT HANDLING
+require("Modules/Area_51_mouse")      -- AREA MOUSE INPUT HANDLING
+require("Modules/Area_51_functions")  -- AREA FUNCTION CALL
+require("Modules/Area_51_functions_code")  -- AREA FUNCTIONS CODE
+require("Modules/Area_51_key_functions")  -- AREA KEY FUNCTIONS
 
 local main_wnd = reaper.GetMainHwnd() -- GET MAIN WINDOW
 local track_window = reaper.JS_Window_FindChildByID(main_wnd, 0x3E8) -- GET TRACK VIEW

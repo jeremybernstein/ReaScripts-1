@@ -1,3 +1,10 @@
+--[[
+   * Author: SeXan
+   * Licence: GPL v3
+   * Version: 0.01
+	 * NoIndex: true
+--]]
+
 local refresh_tracks, update, update_all
 
 function Delete(tr, src_tr, data, t_start, t_dur, t_offset, job)
