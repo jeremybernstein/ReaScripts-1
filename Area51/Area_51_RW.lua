@@ -1,6 +1,17 @@
 package.path = debug.getinfo(1, "S").source:match [[^@?(.*[\/])[^\/]-$]] .. "?.lua;" -- GET DIRECTORY FOR REQUIRE
 package.cursor = debug.getinfo(1, "S").source:match [[^@?(.*[\/])[^\/]-$]] .. "Cursors\\" -- GET DIRECTORY FOR CURSORS
 
+if not reaper.APIExists("JS_ReaScriptAPI_Version") then
+  reaper.MB( "JS_ReaScriptAPI is required for this script", "Please download it from ReaPack", 0 )
+  return reaper.defer(function() end)
+ else
+   local version = reaper.JS_ReaScriptAPI_Version()
+   if version < 1.002 then
+     reaper.MB( "Your JS_ReaScriptAPI version is " .. version .. "\nPlease update to latest version.", "Older version is installed", 0 )
+     return reaper.defer(function() end)
+   end
+end
+
 require("Area_51_class")      -- AREA FUNCTIONS SCRIPT
 require("Area_51_ghosts")     -- AREA MOUSE INPUT HANDLING
 require("Area_51_keyboard")   -- AREA KEYBOARD INPUT HANDLING
@@ -157,6 +168,7 @@ end
 -- MAIN FUNCTION FOR FINDING TRACKS COORDINATES (RETURNS CLIENTS COORDINATES)
 local TBH
 function GetTracksXYH()
+   if reaper.CountTracks(0) == 0 then return end
    TBH = {}
    -- ONLY ADD MASTER TRACK IF VISIBLE IN TCP
    local master_tr_visibility = reaper.GetMasterTrackVisibility()
@@ -175,20 +187,21 @@ function GetTracksXYH()
       end
    end
 
-   local last_Tr = reaper.GetTrack(0, reaper.CountTracks(0) - 1)
+   local last_Tr = Get_last_visible_track()
    local last_Tr_total = reaper.GetMediaTrackInfo_Value(last_Tr, "I_WNDH") -- USE THIS BECAUSE TRACK MAY HAVE ENVELOPES
    local last_Tr_h = reaper.GetMediaTrackInfo_Value(last_Tr, "I_TCPH")
    local last_Tr_t = reaper.GetMediaTrackInfo_Value(last_Tr, "I_TCPY")
 
    for i = 1, reaper.CountTracks(0) do
       local tr = reaper.GetTrack(0, i - 1)
+      local tr_vis = reaper.IsTrackVisible(tr, false) 
       local tr_h = reaper.GetMediaTrackInfo_Value(tr, "I_TCPH")
       local tr_t = reaper.GetMediaTrackInfo_Value(tr, "I_TCPY")
       local tr_b = tr_t + tr_h
-      TBH[tr] = {t = tr_t, b = tr_b, h = tr_h}
+      TBH[tr] = {t = tr_t, b = tr_b, h = tr_h, used = false, vis = tr_vis}
 
       local last_Tr_b = (last_Tr_t + (last_Tr_total*i)) + last_Tr_total
-      TBH["INV" .. i] = {t = last_Tr_t + (last_Tr_total*i), b = last_Tr_b, h = last_Tr_total}
+      TBH["INV" .. i] = {t = last_Tr_t + (last_Tr_total*i), b = last_Tr_b, h = last_Tr_total, used = false, vis = true}
       for j = 1, reaper.CountTrackEnvelopes(tr) do
          local env = reaper.GetTrackEnvelope(tr, j - 1)
          local env_h = reaper.GetEnvelopeInfo_Value(env, "I_TCPH")
@@ -439,7 +452,6 @@ end
 local function GetTrackData(tbl, as_start, as_end)
    for i = 1, #tbl do
       if reaper.ValidatePtr(tbl[i].track, "MediaTrack*") then
-         --local items = get_items_in_as(tbl[i].track, as_start, as_end, "items")
          tbl[i].items = get_items_in_as(tbl[i].track, as_start, as_end) -- TRACK MEDIA ITEMS
          tbl[i].ghosts = Get_item_ghosts(tbl[i].track, tbl[i].items, as_start, as_end)
       elseif reaper.ValidatePtr(tbl[i].track, "TrackEnvelope*") then
@@ -549,11 +561,9 @@ function env_offset_new(src_tr_tbl, old, tr, env_name)
       if reaper.ValidatePtr(cur_tr, "TrackEnvelope*") then
          local m_num = GetEnvNum(cur_tr)
          local first_num = GetEnvNum(first_tr)
-
          local tr_num = GetEnvNum(old)
          local first_area_tr_num = GetEnvNum(src_tr_tbl[1].track)
          local last_area_tr_num = GetEnvNum(src_tr_tbl[#src_tr_tbl].track)
-
          local delta_test = Limit_offset_range(m_num - first_num, first_area_tr_num, last_area_tr_num, 0, reaper.CountTrackEnvelopes(Convert_to_track(first_tr))-1)
          local new_env = reaper.GetTrackEnvelope(tr, delta_test + tr_num)
          return new_env
@@ -609,13 +619,13 @@ function Validate_tracks_type(tbl,tr_type)
    end
 end
 
-local function find_visible_tracks2(cur_offset_id, num)
+local function find_visible_tracks2(cur_offset_id)
    if cur_offset_id == 0 then return 0 end
-   bla = num and num or cur_offset_id
-   for i = cur_offset_id, reaper.CountTracks(0) do
-      local track = reaper.GetTrack(0, i - 1)
-      if track and reaper.IsTrackVisible(track, false) then
-         return i
+   for i = cur_offset_id, reaper.CountTracks(0)*2 do
+      local track = i < reaper.CountTracks(0) and reaper.GetTrack(0, i - 1) or "INV" .. i - reaper.CountTracks(0) --reaper.GetTrack(0, i - 1) and reaper.GetTrack(0, i - 1) or "INV" .. i - ((reaper.CountTracks(0)-1)/2) 
+      if TBH[track] and TBH[track].vis and not TBH[track].used then
+         TBH[track].used = true
+         return track
       end
    end
 end
@@ -642,22 +652,19 @@ function Track_from_offset(tr, offset)
    return new_tr, under
 end
 
-function Track_from_offset2(tr, offset, num)
-   local tr_num = reaper.CSurf_TrackToID(Convert_to_track(tr), false)
-   local last_vis_tr = Get_last_visible_track()
-   local last_num = reaper.CSurf_TrackToID(last_vis_tr, false)
-   local under = (tr_num + offset) > last_num and (tr_num + offset) - last_num or nil
-   local offset_tr = find_visible_tracks2(tr_num + offset, num) or tr_num + offset -- FIND FIRST AVAILABLE VISIBLE TRACK IF HIDDEN
-   local new_tr = under and "INV" .. under or reaper.CSurf_TrackFromID(offset_tr, false)
-   return new_tr, under, offset_tr
+function Track_from_offset2(first, offset)
+   local first_num = reaper.CSurf_TrackToID(Convert_to_track(first), false)
+   local offset_tr = find_visible_tracks2(first_num + offset)-- or last_num + (num+1)--+ first_num + offset + num -- FIND FIRST AVAILABLE VISIBLE TRACK IF HIDDEN
+   local under = type(offset_tr) == "string" and string.match(offset_tr,"%d+") or nil
+   return offset_tr, under
 end
 
 function Check_project()
    local proj, projfn = reaper.EnumProjects(-1, "")
    if last_project ~= proj then
       Remove()
-     last_proj_change_count = reaper.GetProjectStateChangeCount(0)
-     last_project = proj
+      last_proj_change_count = reaper.GetProjectStateChangeCount(0)
+      last_project = proj
    end
 end
 
