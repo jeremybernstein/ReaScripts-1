@@ -678,6 +678,7 @@ local reaper_cursors_list = {
 }
 
 function Change_cursor(zone)
+   if mouse.DRAW_AREA then return end
    if zone then
       if not ICON_INT then
          reaper.JS_WindowMessage_Intercept(track_window, "WM_SETCURSOR", false)
@@ -721,7 +722,7 @@ local function Main()
          Intercept_reaper_key(Areas_TB) -- WATCH TO INTERCEPT KEYS WHEN AREA IS DRAWN (ON SCREEN)
          Pass_thru()
          if not BLOCK then
-            if mouse.Ctrl_Shift() or CREATING then --and mouse.Shift() then
+            if mouse.DRAW_AREA or CREATING then --and mouse.Shift() then
                CreateAreaFromSelection()
             end
             if mouse.Ctrl_Shift() and not mouse.Ctrl_Shift_Alt() and mouse.l_click then -- REMOVE AREAS ON CLICK
