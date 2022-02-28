@@ -109,7 +109,17 @@ function Element:new(x, y, w, h, rprobj, info)
     local elm = {}
     elm.x, elm.y, elm.w, elm.h = x, y, w, h
     elm.rprobj, elm.bm = rprobj, reaper.JS_LICE_CreateBitmap(true, elm.w, elm.h)
-    reaper.JS_LICE_Clear(elm.bm, color)
+    -- reaper.JS_LICE_Clear(elm.bm, color)
+    local r, g, b = reaper.ColorFromNative(reaper.GetThemeColor("col_tr1_bg", 0))
+    local a = 0x66;
+    r = 255 - r
+    g = 255 - g
+    b = 255 - b
+    local pixel = math.floor(a + 0.5) * (2 ^ 24)
+                  + math.floor(r + 0.5) * (2 ^ 16)
+                  + math.floor(g + 0.5) * (2 ^ 8)
+                  + b
+    reaper.JS_LICE_Clear(elm.bm, pixel)
     elm.info = info
     elm.idx = 1;
     setmetatable(elm, self)
