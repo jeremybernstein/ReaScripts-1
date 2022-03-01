@@ -39,8 +39,8 @@ local function ConcatMenuNames(track)
     local concat = ""
     local options = reaper.ValidatePtr(track, "MediaTrack*") and #menu_options or #menu_options-1
     local fimp = ""
-    if reaper.ValidatePtr(mouse.otr, "MediaTrack*") then
-        if reaper.GetMediaTrackInfo_Value(mouse.otr, "I_FREEMODE") == 2 then
+    if reaper.ValidatePtr(track, "MediaTrack*") then
+        if reaper.GetMediaTrackInfo_Value(track, "I_FREEMODE") == 2 then
             fimp = "!"
         end
     end
