@@ -35,7 +35,7 @@ function GetCrash()
 end
 
 function Get1TrackEnvelopeXYH(table, env, tr_t, tr_vis)
-    local retval, env_name = reaper.GetEnvelopeName(env)
+    local _, env_name = reaper.GetEnvelopeName(env)
     local env_h = reaper.GetEnvelopeInfo_Value(env, "I_TCPH")
     local env_t = reaper.GetEnvelopeInfo_Value(env, "I_TCPY") + tr_t
     local env_b = env_t + env_h
@@ -45,7 +45,7 @@ function Get1TrackEnvelopeXYH(table, env, tr_t, tr_vis)
 end
 
 function Get1TrackXYH(table, tr, ismaster)
-    local retval, tr_name = reaper.GetTrackName(tr)
+    local _, tr_name = reaper.GetTrackName(tr)
     local tr_vis = not ismaster and reaper.IsTrackVisible(tr, false) or (reaper.GetMasterTrackVisibility()&1 == 1 and true or false )
     local tr_h = reaper.GetMediaTrackInfo_Value(tr, "I_TCPH")
     local tr_t = reaper.GetMediaTrackInfo_Value(tr, "I_TCPY")
@@ -66,6 +66,34 @@ function GetTracksXYH()
     for i = 0, reaper.CountTracks(0) do
         local tr = i ~= 0 and reaper.GetTrack(0, i - 1) or reaper.GetMasterTrack(0)
         Get1TrackXYH(TBH, tr, i == 0)
+    end
+end
+
+function Create_undo_name(func, track, idx)
+    local track_id =  reaper.GetMediaTrackInfo_Value( track, "IP_TRACKNUMBER" )
+    local undo_name = "VT:" .. math.floor(idx) .. "|".. "TRACK:" .. math.floor(track_id) .. "|" .. "ACTION:" .. func
+    return undo_name
+end
+
+local last_proj_change_count = reaper.GetProjectStateChangeCount(0)
+local function Make_Internal_Undo()
+    local proj_change_count = reaper.GetProjectStateChangeCount(0)
+    if proj_change_count > last_proj_change_count then
+        local last_action = reaper.Undo_CanUndo2(0)
+        if not last_action then return end
+        if not last_action:find("VT:") then return end
+        local nums = {}
+        for num in string.gmatch(last_action, "%d+") do
+            nums[#nums + 1] = num
+        end
+        local idx = math.floor(nums[1])
+        local track =  reaper.GetTrack( 0, nums[2]-1)
+        local fname = string.match(last_action,"ACTION:(.*)")
+
+        _G[fname](track, VT_TB[track], idx)
+
+        MSG(idx)
+        last_proj_change_count = proj_change_count
     end
 end
 
@@ -173,9 +201,9 @@ local function Create_item(tr, data)
             local take_dst = reaper.GetMediaItemTake(empty_item, j-1)
             reaper.GetSetMediaItemTakeInfo_String(take_dst, "GUID", reaper.genGuid(), true)
         end
-        reaper.SetMediaItemInfo_Value(empty_item, "B_UISEL", 1)
-        reaper.Main_OnCommand(41613, 0)
-        reaper.SetMediaItemInfo_Value(empty_item, "B_UISEL", 0)
+        -- reaper.SetMediaItemInfo_Value(empty_item, "B_UISEL", 1)
+        -- reaper.Main_OnCommand(41613, 0)
+        -- reaper.SetMediaItemInfo_Value(empty_item, "B_UISEL", 0)
         new_items[#new_items+1] = empty_item
     end
     return new_items
@@ -353,6 +381,7 @@ function Create_VT_Element()
     ValidateRemovedTracks()
     if reaper.CountTracks(0) == 0 then return end
     CreateSingleVTElement()
+    Make_Internal_Undo()
 end
 
 function SetupSingleElement(rprobj)
@@ -370,6 +399,7 @@ function SetupSingleElement(rprobj)
     end
     if #TBH then
         CreateSingleVTElement()
+        Make_Internal_Undo()
         return 1
     end
     return 0
