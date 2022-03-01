@@ -20,7 +20,7 @@ local mouse = {
 	Ctrl_Alt = function() return reaper.JS_Mouse_GetState(95) &20 == 20 end,
 	Ctrl_Shift_Alt = function() return reaper.JS_Mouse_GetState(95) &28 == 28 end,
 	cap = function (mask)
-			if mask == nil then 
+			if mask == nil then
 				return reaper.JS_Mouse_GetState(95) end
 			return reaper.JS_Mouse_GetState(95)&mask == mask
 			end,
@@ -138,6 +138,8 @@ function Get_track_under_mouse(x, y)
 	local TBH = Get_TBH_Info()
     local _, cy = To_client(x, y)
     local track, env_info = reaper.GetTrackFromPoint(x, y)
+
+	if  reaper.CountTracks(0) == 0 then return end
 
     if track and env_info == 0 and TBH[track].vis == true then
         return track, TBH[track].t, TBH[track].b, TBH[track].h
