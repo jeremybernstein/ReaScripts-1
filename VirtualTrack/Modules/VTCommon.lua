@@ -391,7 +391,7 @@ function SetupSingleElement(rprobj)
     elseif reaper.ValidatePtr(rprobj, "TrackEnvelope*") then
         local tr = reaper.GetEnvelopeInfo_Value(rprobj, "P_TRACK")
         if tr then
-            ismaster = tr == reaper.GetMasterTrack()
+            local ismaster = tr == reaper.GetMasterTrack()
             local tr_vis = not ismaster and reaper.IsTrackVisible(tr, false) or (reaper.GetMasterTrackVisibility()&1 == 1 and true or false )
             local tr_t = reaper.GetMediaTrackInfo_Value(tr, "I_TCPY")
             GetSingleTrackEnvelopeXYH(TBH, rprobj, tr_t, tr_vis)
