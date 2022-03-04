@@ -42,5 +42,5 @@ local function Main()
     end
 end
 
-reaper.atexit(StoreInProject)
+-- reaper.atexit(StoreInProject) -- any action will trigger a state store
 xpcall(Main, GetCrash())
